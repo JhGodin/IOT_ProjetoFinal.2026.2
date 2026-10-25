@@ -1,0 +1,1 @@
+# IOT_ProjetoFinal.2026.2
