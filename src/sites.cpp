@@ -68,14 +68,22 @@ void confirmarRedeWiFi() {
   }
 }
 void ArquivoHTML() {
-  if (LittleFS.exists("/login.html")) {
-    return;
+  if (!LittleFS.exists("/login.html")) {
+    Serial.println("ERRO: login.html nao esta na memoria do ESP32.");
+    Serial.println("Envie a pasta data para o LittleFS e reinicie a placa.");
+  }
+
+  if (!LittleFS.exists("/cardapio.html")) {
+    Serial.println("ERRO: cardapio.html nao esta na memoria do ESP32.");
+    Serial.println("Envie a pasta data para o LittleFS e reinicie a placa.");
   }
   
-  Serial.println("ERRO: login.html nao esta na memoria do ESP32.");
-  Serial.println("Envie a pasta data para o LittleFS e reinicie a placa.");
-  while (true) {
-    delay(100); 
+  
+  // So continua se os dois arquivos estiverem presentes.
+  if (!LittleFS.exists("/login.html") || !LittleFS.exists("/cardapio.html")) {
+    while (true) {
+      delay(100);
+    }
   }
 }
 
@@ -84,7 +92,7 @@ void ArquivoHTML() {
 void pagina1 () {
   File arquivo = LittleFS.open("/login.html", "r");
   if (!arquivo) {
-    servidor.send(500, "text/html", "Erro no HTML");
+    servidor.send(500, "text/html", "Erro no HTML [login]");
     return;
   }
   String html = arquivo.readString();
@@ -93,7 +101,15 @@ void pagina1 () {
   servidor.send(200, "text/html", html);
 }
 void pagina2 () {
-  servidor.send(200, "text/html", "Bem-vindo!");
+  File arquivo = LittleFS.open("/cardapio.html", "r");
+  if (!arquivo) {
+    servidor.send(500, "text/html", "Erro no HTML [cardapio]");
+    return;
+  }
+  String html = arquivo.readString();
+  arquivo.close();
+  
+  servidor.send(200, "text/html", html);
 }
 void pagina0 () {
   servidor.send(200, "text/html", "Obrigado!!!");

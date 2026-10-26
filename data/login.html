@@ -1,43 +1,10 @@
-<html>
+<!DOCTYPE html>
+<html lang="pt-BR">
 
 <head>
   <title>Cadastro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta charset="UTF-8">
-</head>
-
-<body>
-  <div class="mt-3 mx-3">
-    <form class="container mt-3" style="max-width: 800px;" method="POST">
-      <h1 class="mb-3">Configurações</h1>
-      <div class="row">
-        <div class="col-md-6">
-          <div class="card mb-4">
-            <h5 class="card-header">Usuário</h5>
-            <div class="card-body">
-              <div class="row mb-2">
-                <div>
-                  <label for="campo-nome">Nome Completo</label>
-                  <input id="campo-nome" class="form-control" name="nome" type="text"
-                  pattern="[\p{L}\p{M}]+(?: [\p{L}\p{M}]+)*"
-                  required>
-                  
-                  <label for="campo-cpf">CPF</label>
-                  <input id="campo-cpf" class="form-control" name="cpf"
-                  type="text" inputmode="numeric"
-                  pattern="[0-9]{11}"
-                  required>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <button type="submit" class="btn btn-primary">Salvar</button>
-      </form>
-    </div>
-  </body>
-  
   <style>
     /* Reset básico */
     *, ::after, ::before {
@@ -323,5 +290,41 @@
       margin-left: 1rem !important;
     }
   </style>
+</head>
+
+<body>
+  <div class="mt-3 mx-3">
+    <form class="container mt-3" style="max-width: 800px;" method="POST">
+      <h1 class="mb-3">Login de Usuário</h1>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card mb-4">
+            <h5 class="card-header">Usuário</h5>
+            <div class="card-body">
+              <div class="row mb-2">
+                <div>
+                  <label for="campo-nome">Nome Completo</label>
+                  <input id="campo-nome" class="form-control" name="nome" type="text"
+                  pattern="[\p{L}\p{M}]+(?: [\p{L}\p{M}]+)*"
+                  required>
+                  
+                  <label for="campo-cpf">CPF</label>
+                  <input id="campo-cpf" class="form-control" name="cpf"
+                  type="text" inputmode="numeric"
+                  pattern="[0-9]{11}"
+                  required>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </form>
+    </div>
+  </body>
+  
+
   
   </html>
