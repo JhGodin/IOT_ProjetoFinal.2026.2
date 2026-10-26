@@ -9,8 +9,8 @@ Projeto de totem informativo e pagamento
 - `src/sites.cpp`: versao destinada ao ESP32.
 - `src/sites_teste.cpp`: adaptacao para testes locais no Windows.
 - `src/certificados.h`: certificados publicos usados na configuracao TLS.
-- `src/credenciais.exemplo.h`: modelo de configuracao sem senhas reais.
-- `data/login.html`: formulario para enviar ao LittleFS da placa.
+- `src/credenciais.exemplo.h`: modelo de configuracao do laboratório.
+- `data/login.html`: formulario para o cadastro.
 - `pdf/Resumo08.pdf`: material de referencia da aula.
 
 ## Configuracao local
