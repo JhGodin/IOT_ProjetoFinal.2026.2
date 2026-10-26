@@ -2,7 +2,7 @@
 
 Projeto Final de Internet das Coisas.
 
-Projeto de totem com formulario web e publicacao de dados por MQTT.
+Projeto de totem informativo e pagamento
 
 ## Arquivos
 
