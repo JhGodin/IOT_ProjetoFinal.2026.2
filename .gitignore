@@ -1,0 +1,20 @@
+# Credenciais locais
+/credenciais.txt
+/src/credenciais.h
+.env
+.env.*
+!.env.example
+
+# Arquivos gerados pelo compilador e PlatformIO
+*.exe
+*.o
+*.obj
+*.elf
+*.bin
+*.map
+.pio/
+
+# Arquivos temporarios de verificacao
+.verificacao*
+.revisao*
+*.tmp
