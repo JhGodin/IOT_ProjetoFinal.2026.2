@@ -12,10 +12,16 @@
 
 #include <MQTT.h>
 
+#include <SPI.h>
+#include <MFRC522.h>
+
+#include "credenciais.h"
+
+MFRC522 rfid(46, 17);
+MFRC522::MIFARE_Key chaveA = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
+
 // LittleFS [pendente] -> arquivos html dentro do ESP32
-// MQTT [confirmações]
 // MQTT [envio] -> pode enviar mais de uma vez o login (1)
-// qual é a porta para conexão MQTT com TLS
 
 WiFiClientSecure conexaoSegura;
 MQTTClient mqtt(1000);
@@ -26,117 +32,120 @@ String senhaRede = WIFI_SENHA;
 String nomeUsuario;
 String cpfUsuario;
 
-String lerRespostaSerial() {
+String lerRespostaSerial()
+{
   String resposta;
-  
-  while (true) {
-    if (!Serial.available()) {
+
+  while (true)
+  {
+    if (!Serial.available())
+    {
       delay(5);
       continue;
     }
-    
+
     char caractere = Serial.read();
-    if (caractere == '\n') {
+    if (caractere == '\n')
+    {
       return resposta;
     }
-    
+
     // '\r' pode aparecer em alguns retrnos [precaução]
-    if (caractere != '\r') {
+    if (caractere != '\r')
+    {
       resposta += caractere;
     }
   }
 }
-void confirmarRedeWiFi() {
+void confirmarRedeWiFi()
+{
   Serial.println("\nRede Atual: " + nomeRede);
   Serial.println("A rede segue igual? (s/n)");
-  
+
   String resposta;
-  do {
+  do
+  {
     resposta = lerRespostaSerial();
     resposta.trim();
     resposta.toLowerCase();
   } while (resposta != "s" && resposta != "n");
-  
-  if (resposta == "n") {
-    do {
+
+  if (resposta == "n")
+  {
+    do
+    {
       Serial.println("Digite o nome da nova rede:");
       nomeRede = lerRespostaSerial();
     } while (nomeRede.length() == 0);
-    
+
     Serial.println("Digite a senha:");
     senhaRede = lerRespostaSerial();
   }
 }
-void ArquivoHTML() {
-  if (!LittleFS.exists("/login.html")) {
-    Serial.println("ERRO: login.html nao esta na memoria do ESP32.");
-    Serial.println("Envie a pasta data para o LittleFS e reinicie a placa.");
-  }
-
-  if (!LittleFS.exists("/cardapio.html")) {
+void ArquivoHTML()
+{
+  if (!LittleFS.exists("/cardapio.html"))
+  {
     Serial.println("ERRO: cardapio.html nao esta na memoria do ESP32.");
     Serial.println("Envie a pasta data para o LittleFS e reinicie a placa.");
-  }
-  
-  
-  // So continua se os dois arquivos estiverem presentes.
-  if (!LittleFS.exists("/login.html") || !LittleFS.exists("/cardapio.html")) {
-    while (true) {
+    while (true)
+    {
       delay(100);
     }
   }
+  return;
 }
-
-
-
-void pagina1 () {
-  File arquivo = LittleFS.open("/login.html", "r");
-  if (!arquivo) {
-    servidor.send(500, "text/html", "Erro no HTML [login]");
-    return;
+String lerRFID()
+{
+  String id = "";
+  for (byte i = 0; i < rfid.uid.size; i++)
+  {
+    if (i > 0)
+    {
+      id += " ";
+    }
+    if (rfid.uid.uidByte[i] < 0x10)
+    {
+      id += "0";
+    }
+    id += String(rfid.uid.uidByte[i], HEX);
   }
-  String html = arquivo.readString();
-  arquivo.close();
-  
-  servidor.send(200, "text/html", html);
+  id.toUpperCase();
+  return id;
 }
-void pagina2 () {
+
+void recebeuMensagem(String topico, String conteudo)
+{
+  Serial.println(topico + ": " + conteudo);
+  if (topico == "totem/canal_id")
+  {
+  }
+}
+void pagina2()
+{
   File arquivo = LittleFS.open("/cardapio.html", "r");
-  if (!arquivo) {
+  if (!arquivo)
+  {
     servidor.send(500, "text/html", "Erro no HTML [cardapio]");
     return;
   }
   String html = arquivo.readString();
   arquivo.close();
-  
+
   servidor.send(200, "text/html", html);
 }
-void pagina0 () {
-  servidor.send(200, "text/html", "Obrigado!!!");
-}
-void tratarDados() {
-  JsonDocument dados;
-  String textoJson;
-  
-  nomeUsuario = servidor.arg("nome");
-  cpfUsuario = servidor.arg("cpf");
-  dados["usuario"] = nomeUsuario;
-  dados["cpf"] = cpfUsuario;
-  
-  serializeJson(dados, textoJson);
-  mqtt.publish("totem/login", textoJson, false, 1);
-  
-  servidor.sendHeader("Location", "/login_realizado");
-  servidor.send(303);
+void tratarSinal()
+{
 }
 
-
-
-void reconectarWiFi() {
-  if (WiFi.status() != WL_CONNECTED) {
+void reconectarWiFi()
+{
+  if (WiFi.status() != WL_CONNECTED)
+  {
     WiFi.begin(nomeRede.c_str(), senhaRede.c_str());
     Serial.print("Conectando ao WiFi...");
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
       Serial.print(".");
       delay(1000);
     }
@@ -144,10 +153,13 @@ void reconectarWiFi() {
     Serial.println(WiFi.localIP());
   }
 }
-void reconectarMQTT() {
-  if (!mqtt.connected()) {
+void reconectarMQTT()
+{
+  if (!mqtt.connected())
+  {
     Serial.print("Conectando MQTT...");
-    while(!mqtt.connected()) {
+    while (!mqtt.connected())
+    {
       mqtt.connect(MQTT_CLIENTE_ID, MQTT_USUARIO, MQTT_SENHA);
       Serial.print(".");
       delay(1000);
@@ -156,35 +168,57 @@ void reconectarMQTT() {
   }
 }
 
-void setup() {
-  Serial.begin(115200); delay(500);
+void setup()
+{
+  Serial.begin(115200);
+  delay(500);
   confirmarRedeWiFi();
-  
-  if (!LittleFS.begin()) {
+
+  // RFid
+  SPI.begin();
+  rfid.PCD_Init();
+
+  // Arq. ESP
+  if (!LittleFS.begin())
+  {
     Serial.println("LittleFS falhou!");
-    while (true) {};
+    while (true)
+    {
+    };
   }
-  
   ArquivoHTML();
-  
+
+  // MQTT
   conexaoSegura.setCACert(certificado1);
-  mqtt.begin("mqtt.janks.dev.br", portaTLS, conexaoSegura); 
+  mqtt.begin("mqtt.janks.dev.br", 1883, conexaoSegura);
   mqtt.setKeepAlive(10);
-  
-  servidor.on("/login", HTTP_GET, pagina1);
-  servidor.on("/login", HTTP_POST, tratarDados);
-  servidor.on("/login_realizado", HTTP_GET, pagina0);
+
+  // WebServer
   servidor.on("/loja", HTTP_GET, pagina2);
+  servidor.on("/loja", HTTP_POST, tratarDados);
+
+  mqtt.onMessage(recebeuMensagem);
   servidor.begin();
-  
+
   reconectarWiFi();
   reconectarMQTT();
 }
-
-void loop() {
+void loop()
+{
   reconectarWiFi();
   reconectarMQTT();
   mqtt.loop();
-  
+
+  if (rfid.PICC_IsNewCardPresent() &&  rfid.PICC_ReadCardSerial())
+  {
+    String id = lerRFID();
+    Serial.println("UID: " + id);
+
+    mqtt.publish("totem/id", id);
+
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1
+  }
+
   servidor.handleClient();
 }
