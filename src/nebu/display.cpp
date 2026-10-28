@@ -44,6 +44,7 @@ void texto(const uint8_t *fonte, int16_t x, int16_t y, const String &txt) {
 
 void textoCentrado(const uint8_t *fonte, int16_t y, const String &txt) {
   fontes.setFont(fonte);
+  fontes.setFontMode(1);
   const int16_t largura = fontes.getUTF8Width(txt.c_str());
   fontes.setCursor((telaLargura() - largura) / 2, y);
   fontes.print(txt);
@@ -65,6 +66,7 @@ bool qrAjustado(const String &conteudo, int16_t x, int16_t y, int16_t lado) {
   for (uint16_t escala = QR_ESCALA_MAX; escala >= 1; escala--) {
     qrcode.setScale(escala);
     if (qrcode.getSideLength() <= lado) {
+      qrcode.setScale(escala);
       return qrcode.draw(x, y, true);
     }
   }

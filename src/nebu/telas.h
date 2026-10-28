@@ -24,9 +24,8 @@ void telaSaidaPix(const String &conteudoQR);
 void telaSaidaAdeus(const String &nome);
 
 // --- Totem de comida ---
-void telaComidaCardapio(const String &linkAP);
-void telaComidaAguardaPedido();
-void telaComidaPassaRFID(float total);
+void telaComidaPassaRFID();
+void telaComidaCardapio(const String &linkCardapio, const String &nome);
 
 // --- Totem de palco (sem estado: o servidor empurra o próximo show) ---
 void telaPalco(const Show &show);

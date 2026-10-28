@@ -41,11 +41,7 @@ bool pagamentoConfirmado(const User &user) {
   return false;
 }
 
-bool clienteNoCardapio() {
-  return false;
-}
-
-bool pedidoPendente(PendingOrder &pedido) {
-  (void)pedido;
-  return false;
+String linkCardapio(const User &user) {
+  (void)user;
+  return String();          // sem AP: nenhum cardápio para mostrar
 }

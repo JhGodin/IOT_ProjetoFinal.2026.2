@@ -53,7 +53,7 @@ void totemSaidaLoop() {
   switch (estado) {
     case SaidaEstado::AguardandoRFID: {
       User user;
-      if (!lerRFID(user)) break;        // nenhum chip agora: volta no próximo loop
+      if (!lerUsuario(user)) break;        // nenhum chip agora: volta no próximo loop
 
       userAtual = user;
       pixAtual  = pixCobranca(userAtual);

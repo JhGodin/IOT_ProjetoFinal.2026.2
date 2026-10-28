@@ -16,13 +16,6 @@ static const int16_t QR_Y    = 34;
 static const int16_t QR_LADO = 86;      // cabe em 128 - 34 - folga
 static const int16_t COL_DIR = 108;     // onde começa a coluna de texto
 
-/// "R$ 12,50" — vírgula decimal, como se escreve em português.
-static String reais(float valor) {
-  String s = String(valor, 2);
-  s.replace('.', ',');
-  return "R$ " + s;
-}
-
 // ---------------------------------------------------------------------------
 // Entrada
 // ---------------------------------------------------------------------------
@@ -96,34 +89,32 @@ void telaSaidaAdeus(const String &nome) {
 // Comida
 // ---------------------------------------------------------------------------
 
-void telaComidaCardapio(const String &linkAP) {
-  telaComeca();
-
-  textoCentrado(FONTE_MEDIA, 24, "Nosso cardápio online");
-
-  qrAjustado(linkAP, QR_X, QR_Y, QR_LADO);
-
-  textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 70,
-                     "Escaneie, peça");
-  textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 90,
-                     "e pague no RFID");
-
-  telaTermina(false);
-}
-
-void telaComidaAguardaPedido() {
-  // Sem QR de propósito: enquanto alguém está com o cardápio aberto, o totem
-  // atende uma pessoa por vez. Ver nota em totem_comida.cpp.
-  telaComeca();
-  textoCentrado(FONTE_MEDIA, 58, "Faça seu pedido");
-  textoCentrado(FONTE_MEDIA, 86, "no celular");
-  telaTermina(false);
-}
-
-void telaComidaPassaRFID(float total) {
+void telaComidaPassaRFID() {
   telaComeca();
   textoCentrado(FONTE_MEDIA, 50, "Passe seu RFID");
-  textoCentrado(FONTE_GRANDE, 92, reais(total));
+  textoCentrado(FONTE_MEDIA, 80, "pra ver o cardápio");
+  telaTermina(false);
+}
+
+void telaComidaCardapio(const String &linkCardapio, const String &nome) {
+  telaComeca();
+
+  // O link já vem com o ID do usuário dentro, então este QR é só dele: o
+  // pedido feito no celular sai no nome certo sem ninguém digitar login.
+  if (!qrAjustado(linkCardapio, QR_X, QR_Y, QR_LADO)) {
+    textoCentrado(FONTE_MEDIA, 60, "Erro no cardápio");
+    textoCentrado(FONTE_PEQUENA, 84, "Procure a organização");
+    telaTermina(false);
+    return;
+  }
+
+  textoCentrado(FONTE_MEDIA, 24, nome.length() ? ("Oi, " + nome + "!") : "Nosso cardápio");
+
+  textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 70,
+                     "Escaneie e peça");
+  textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 90,
+                     "pelo celular");
+
   telaTermina(false);
 }
 

@@ -18,11 +18,13 @@
 #include "totem_entrada.h"
 #include "totem_palco.h"
 #include "totem_saida.h"
+#include "teste_telas.h"
 
 #define TOTEM_ENTRADA 1
 #define TOTEM_SAIDA   2
 #define TOTEM_COMIDA  3
 #define TOTEM_PALCO   4
+#define TOTEM_TESTE   5   // teste de layout, só ESP + e-paper
 
 #ifndef TOTEM_PAPEL
 #define TOTEM_PAPEL TOTEM_ENTRADA
@@ -40,6 +42,8 @@ void setup() {
   totemComidaBegin();
 #elif TOTEM_PAPEL == TOTEM_PALCO
   totemPalcoBegin();
+#elif TOTEM_PAPEL == TOTEM_TESTE
+  testeTelasBegin();
 #else
 #error "TOTEM_PAPEL inválido"
 #endif
@@ -54,5 +58,7 @@ void loop() {
   totemComidaLoop();
 #elif TOTEM_PAPEL == TOTEM_PALCO
   totemPalcoLoop();
+#elif TOTEM_PAPEL == TOTEM_TESTE
+  testeTelasLoop();
 #endif
 }
