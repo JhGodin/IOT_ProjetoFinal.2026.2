@@ -1,9 +1,14 @@
 # Credenciais locais
 /credenciais.txt
 /src/credenciais.h
+/src/credenciais.py
+/src/credenciais/credenciais.h
+/src/credenciais/credenciais.py
 .env
 .env.*
-!.env.example
+.venv/
+__pycache__/
+*.pyc
 
 # Arquivos gerados pelo compilador e PlatformIO
 *.exe

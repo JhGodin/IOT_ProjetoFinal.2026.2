@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
-#include "certificados.h"
-#include "credenciais.h"
+#include "credenciais/certificados.h"
+#include "credenciais/credenciais.h"
 
 #include <WebServer.h>
 #include <uri/UriBraces.h>
@@ -15,7 +15,7 @@
 #include <SPI.h>
 #include <MFRC522.h>
 
-#include "credenciais.h"
+#include "credenciais/credenciais.h"
 
 MFRC522 rfid(46, 17);
 MFRC522::MIFARE_Key chaveA = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};

@@ -1,6 +1,6 @@
 #include "display.h"
 
-#include "pinos.h"
+#include "../credenciais/pinos.h"
 
 PainelEPD tela(GxEPD2_290_T94_V2(PIN_EPD_CS, PIN_EPD_DC, PIN_EPD_RST, PIN_EPD_BUSY));
 U8G2_FOR_ADAFRUIT_GFX fontes;

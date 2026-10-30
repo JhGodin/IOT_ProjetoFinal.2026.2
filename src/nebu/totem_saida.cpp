@@ -4,7 +4,7 @@
 
 #include "aviso.h"
 #include "equipe.h"
-#include "pinos.h"
+#include "../credenciais/pinos.h"
 #include "telas.h"
 
 static const uint32_t TIMEOUT_PAGAMENTO_MS = 60000;
