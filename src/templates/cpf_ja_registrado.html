@@ -6,8 +6,10 @@
   <title>CPF já registrado</title>
 </head>
 <body>
-  <h1>CPF já registrado</h1>
-  <p>Este CPF já possui cadastro. Nenhum novo cadastro ou link foi criado.</p>
-  <a href="/login">Voltar ao login</a>
+  <h1>Login já realizado</h1>
+  <p>Este CPF já possui um cadastro.</p>
+  <form action="{{ url_for('inicio') }}" method="GET">
+    <button type="submit">Voltar ao login</button>
+  </form>
 </body>
 </html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro do RFID</title>
+</head>
+<body>
+  <h1>Realize o registro do RFID</h1>
+  <p>Aproxime seu cartão ou pulseira do leitor RFID do totem para continuar.</p>
+  <p id="estado-rfid" role="status">Aguardando leitura do RFID...</p>
+  <!-- Cadastro: cancela o atendimento e retorna a pagina inicial. -->
+  <form action="/cancel" method="POST">
+    <button type="submit">Cancelar</button>
+  </form>
+  <!-- RFID: permanece nesta pagina enquanto o Python aguarda o MQTT. -->
+  <script>
+    async function aguardarRFID() {
+      try {
+        const resposta = await fetch("/rfid", {method: "POST"});
+        const dados = await resposta.json();
+        if (dados.mensagem) {
+          document.getElementById("estado-rfid").textContent = dados.mensagem;
+        }
+        if (dados.estado === "sucesso" || resposta.status === 401) return;
+      } catch (erro) {
+        document.getElementById("estado-rfid").textContent =
+          "Falha na conexao. Tentando novamente...";
+      }
+      setTimeout(aguardarRFID, 1000);
+    }
+    aguardarRFID();
+  </script>
+</body>
+</html>

@@ -14,6 +14,10 @@
 // SPI padrão do ESP32-S3 (FSPI): SCK=12, MOSI=11, MISO=13.
 // O MFRC522 reaproveita SCK/MOSI/MISO e precisa de CS e RST próprios.
 
+// --- Leitor RFID MFRC522 (mesma ligacao usada no ESP_cardapio) ---
+#define PIN_RFID_CS      46
+#define PIN_RFID_RST     17
+
 // --- Leitor de QR por serial (UART1) ---
 #define PIN_LEITOR_RX    47
 #define PIN_LEITOR_TX    48   // ATENÇÃO: GPIO48 é o LED RGB na DevKitC-1

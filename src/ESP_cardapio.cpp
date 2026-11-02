@@ -21,80 +21,14 @@ MFRC522 rfid(46, 17);
 MFRC522::MIFARE_Key chaveA = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
 
 // LittleFS [pendente] -> arquivos html dentro do ESP32
-// MQTT [envio] -> pode enviar mais de uma vez o login (1)
 
 WiFiClientSecure conexaoSegura;
 MQTTClient mqtt(1000);
 WebServer servidor(80);
 
-String nomeRede = WIFI_NOME;
-String senhaRede = WIFI_SENHA;
-String nomeUsuario;
-String cpfUsuario;
 
-String lerRespostaSerial()
-{
-  String resposta;
 
-  while (true)
-  {
-    if (!Serial.available())
-    {
-      delay(5);
-      continue;
-    }
 
-    char caractere = Serial.read();
-    if (caractere == '\n')
-    {
-      return resposta;
-    }
-
-    // '\r' pode aparecer em alguns retrnos [precaução]
-    if (caractere != '\r')
-    {
-      resposta += caractere;
-    }
-  }
-}
-void confirmarRedeWiFi()
-{
-  Serial.println("\nRede Atual: " + nomeRede);
-  Serial.println("A rede segue igual? (s/n)");
-
-  String resposta;
-  do
-  {
-    resposta = lerRespostaSerial();
-    resposta.trim();
-    resposta.toLowerCase();
-  } while (resposta != "s" && resposta != "n");
-
-  if (resposta == "n")
-  {
-    do
-    {
-      Serial.println("Digite o nome da nova rede:");
-      nomeRede = lerRespostaSerial();
-    } while (nomeRede.length() == 0);
-
-    Serial.println("Digite a senha:");
-    senhaRede = lerRespostaSerial();
-  }
-}
-void ArquivoHTML()
-{
-  if (!LittleFS.exists("/cardapio.html"))
-  {
-    Serial.println("ERRO: cardapio.html nao esta na memoria do ESP32.");
-    Serial.println("Envie a pasta data para o LittleFS e reinicie a placa.");
-    while (true)
-    {
-      delay(100);
-    }
-  }
-  return;
-}
 String lerRFID()
 {
   String id = "";
@@ -114,6 +48,8 @@ String lerRFID()
   return id;
 }
 
+
+//corrigir
 void recebeuMensagem(String topico, String conteudo)
 {
   Serial.println(topico + ": " + conteudo);
@@ -134,15 +70,13 @@ void pagina2()
 
   servidor.send(200, "text/html", html);
 }
-void tratarSinal()
-{
-}
+
 
 void reconectarWiFi()
 {
   if (WiFi.status() != WL_CONNECTED)
   {
-    WiFi.begin(nomeRede.c_str(), senhaRede.c_str());
+    WiFi.begin(WIFI_NOME, WIFI_SENHA);
     Serial.print("Conectando ao WiFi...");
     while (WiFi.status() != WL_CONNECTED)
     {
@@ -168,12 +102,14 @@ void reconectarMQTT()
   }
 }
 
+
+
+
 void setup()
 {
   Serial.begin(115200);
   delay(500);
-  confirmarRedeWiFi();
-
+  
   // RFid
   SPI.begin();
   rfid.PCD_Init();
@@ -186,7 +122,15 @@ void setup()
     {
     };
   }
-  ArquivoHTML();
+  if (!LittleFS.exists("/cardapio.html"))
+  {
+    Serial.println("ERRO: cardapio.html nao esta na memoria do ESP32.");
+    Serial.println("Envie a pasta data para o LittleFS e reinicie a placa.");
+    while (true)
+    {
+      delay(100);
+    }
+  }
 
   // MQTT
   conexaoSegura.setCACert(certificado1);
@@ -217,7 +161,7 @@ void loop()
     mqtt.publish("totem/id", id);
 
     rfid.PICC_HaltA();
-    rfid.PCD_StopCrypto1
+    rfid.PCD_StopCrypto1();
   }
 
   servidor.handleClient();
