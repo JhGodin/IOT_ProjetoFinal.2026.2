@@ -209,6 +209,117 @@ def sairAdmin():
     return redirect("/avisos", code=303)
 
 
+# ///////gabriel/////// semana 2: cardapio vindo do banco (/loja) e registro de consumo
+def buscarProdutos():
+    with engine.connect() as conexao:
+        linhas = conexao.execute(
+            text('SELECT codigo, nome, preco FROM "_totem_produtos" ORDER BY codigo')
+        ).all()
+
+    produtos = []
+    for linha in linhas:
+        produtos.append({
+            "codigo": linha.codigo,
+            "nome": linha.nome,
+            "preco": linha.preco,
+            "precoTexto": f"R$ {linha.preco / 100:.2f}",
+        })
+    return produtos
+def buscarUsuarioDoLink(idLink):
+    # O id do link e o token + CPF (11 digitos), entao o CPF sao os 11 ultimos caracteres.
+    cpf = idLink[-11:]
+    with engine.connect() as conexao:
+        usuario = conexao.execute(
+            text('SELECT nome, cpf, link FROM "_totem_ProjetoFinal" WHERE cpf = :cpf'),
+            {"cpf": cpf},
+        ).first()
+
+    if usuario is None or not usuario.link.endswith("id=" + idLink):
+        return None
+    return usuario
+def calcularDivida(cpf):
+    with engine.connect() as conexao:
+        linha = conexao.execute(
+            text('SELECT SUM(quantidade * preco) FROM "_totem_consumos" WHERE cpf = :cpf'),
+            {"cpf": cpf},
+        ).first()
+
+    if linha[0] is None:
+        return 0
+    return linha[0]
+def tratarPedido():
+    idLink = request.args.get("id", "")
+    voltar = "/loja?id=" + idLink
+
+    try:
+        usuario = buscarUsuarioDoLink(idLink)
+        if usuario is None:
+            return render_template("pedido_invalido.html", mensagem="Link de cardápio inválido.", voltar=None), 404
+
+        produtos = buscarProdutos()
+        itensPedido = []
+        totalPedido = 0
+        for produto in produtos:
+            quantidade = request.form.get("item" + str(produto["codigo"]), "0").strip()
+            if not quantidade.isdigit():
+                return render_template("pedido_invalido.html", mensagem="Quantidade inválida.", voltar=voltar), 400
+
+            quantidade = int(quantidade)
+            if quantidade > 0:
+                subtotal = quantidade * produto["preco"]
+                itensPedido.append({
+                    "codigo": produto["codigo"],
+                    "nome": produto["nome"],
+                    "quantidade": quantidade,
+                    "preco": produto["preco"],
+                    "subtotalTexto": f"R$ {subtotal / 100:.2f}",
+                })
+                totalPedido += subtotal
+
+        if len(itensPedido) == 0:
+            return render_template("pedido_invalido.html", mensagem="Nenhum item foi escolhido.", voltar=voltar), 400
+
+        with engine.begin() as conexao:
+            for item in itensPedido:
+                conexao.execute(
+                    text('INSERT INTO "_totem_consumos" (cpf, codigo_produto, quantidade, preco) '
+                         "VALUES (:cpf, :codigo, :quantidade, :preco)"),
+                    {"cpf": usuario.cpf, "codigo": item["codigo"],
+                     "quantidade": item["quantidade"], "preco": item["preco"]},
+                )
+
+        divida = calcularDivida(usuario.cpf)
+
+    except SQLAlchemyError:
+        return "Nao foi possivel registrar o pedido no banco de dados.", 500
+
+    return render_template(
+        "pedido_confirmado.html",
+        nome=usuario.nome,
+        itens=itensPedido,
+        total=f"R$ {totalPedido / 100:.2f}",
+        divida=f"R$ {divida / 100:.2f}",
+        voltar=voltar,
+    )
+
+
+@app.route("/loja", methods=["GET"])
+def mostrarCardapio():
+    idLink = request.args.get("id", "")
+    try:
+        usuario = buscarUsuarioDoLink(idLink)
+        if usuario is None:
+            return render_template("pedido_invalido.html", mensagem="Link de cardápio inválido.", voltar=None), 404
+        produtos = buscarProdutos()
+    except SQLAlchemyError:
+        return "Nao foi possivel acessar o banco de dados.", 500
+
+    return render_template("loja.html", nome=usuario.nome, produtos=produtos)
+@app.route("/loja", methods=["POST"])
+def receberPedido():
+    return tratarPedido()
+
+
 if __name__ == "__main__":
     try:
         app.run(debug=True, port=5000, use_reloader=False)

@@ -1,0 +1,19 @@
+<!-- ///////gabriel/////// erro simples do pedido (link invalido, quantidade invalida ou pedido vazio) -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pedido não registrado</title>
+</head>
+<body>
+  <h1>{{ mensagem }}</h1>
+  {% if voltar %}
+  <form action="{{ voltar }}" method="GET">
+    <button type="submit">Voltar ao cardápio</button>
+  </form>
+  {% else %}
+  <p>Procure o totem de cadastro para gerar um novo link.</p>
+  {% endif %}
+</body>
+</html>

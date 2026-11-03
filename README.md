@@ -48,3 +48,44 @@ Com o ambiente da placa configurado no PlatformIO, use as tarefas
 ao LittleFS. O arquivo e acessado na placa como `/login.html`.
 Ao configurar a compilacao do ESP32, exclua `src/sites_teste.cpp`, que e
 especifico do Windows.
+
+## Semana 2 - Cardápio e registro de consumo (Gabriel)
+
+> Observação: as seções acima ("Arquivos", "Configuracao local", "Estado atual",
+> "Compilacao do teste Windows") descrevem a versão antiga do servidor em C++.
+> O servidor atual é o `src/sites.py` (Flask), descrito abaixo.
+
+### Banco de dados
+
+O script `banco/tabelas.sql` cria as duas tabelas novas (rodar uma vez no
+Beekeeper Studio) e documenta as consultas usadas:
+
+- `_totem_ProjetoFinal` (já existia): usuários - nome, cpf, link, rfid.
+- `_totem_produtos`: cardápio - codigo, nome, preco (em centavos, como no Projeto 04).
+- `_totem_consumos`: uma linha por produto pedido - id e data_hora automáticos,
+  cpf, codigo_produto, quantidade e preco no momento da compra.
+
+### Rotas novas no `src/sites.py`
+
+- `GET /loja?id=...`: confere o `id` do link gerado no cadastro (coluna `link`),
+  busca os produtos no banco e mostra `templates/loja.html` com nome e preço.
+- `POST /loja?id=...`: lê as quantidades (`item1`, `item2`, ... = código do produto),
+  valida (quantidade não numérica/negativa ou pedido vazio), grava em
+  `_totem_consumos` e mostra `templates/pedido_confirmado.html` com o total do
+  pedido e o total já consumido pelo usuário no festival.
+- Erros aparecem em `templates/pedido_invalido.html`.
+
+O `templates/cardapio.html` original continua igual (é o usado pelo
+`ESP_cardapio.cpp`). O `loja.html` é a mesma página, mas com os itens vindos do banco.
+
+### Como testar
+
+1. Rodar `banco/tabelas.sql` no banco do grupo.
+2. Rodar `python src/sites.py` e fazer um cadastro em `http://localhost:5000/`.
+3. Copiar o `id` da coluna `link` do usuário e abrir
+   `http://localhost:5000/loja?id=<id>`.
+4. Escolher os itens, confirmar e conferir as linhas novas em `_totem_consumos`.
+
+Pendente com o grupo: o link gerado no cadastro ainda aponta para
+`http://192.168.4.1/loja` (ESP). Se a loja ficar no servidor Flask, basta trocar
+o começo do link pelo endereço do computador que roda o `sites.py`.
