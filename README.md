@@ -75,6 +75,19 @@ Beekeeper Studio) e documenta as consultas usadas:
   pedido e o total já consumido pelo usuário no festival.
 - Erros aparecem em `templates/pedido_invalido.html`.
 
+### Estilo único (`src/static/estilo.css`)
+
+O CSS que se repetia em cada página (cards, botões, formulário, controles de
+quantidade, tabela) fica em `src/static/estilo.css`. Cada página do Flask importa com:
+
+```html
+<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+```
+
+O Flask serve a pasta `static` sozinho. Já usam: `loja.html`, `pedido_confirmado.html`
+e `pedido_invalido.html`. As demais páginas podem trocar o `<style>` por essa linha.
+O `cardapio.html` servido pelo ESP continua com o estilo dentro do arquivo.
+
 O `templates/cardapio.html` original continua igual (é o usado pelo
 `ESP_cardapio.cpp`). O `loja.html` é a mesma página, mas com os itens vindos do banco.
 
