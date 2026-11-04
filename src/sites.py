@@ -210,6 +210,9 @@ def sairAdmin():
 
 
 # ///////gabriel/////// semana 2: cardapio vindo do banco (/loja) e registro de consumo
+def formatarReais(centavos):
+    # 2500 centavos -> "R$ 25,00"
+    return f"R$ {centavos / 100:.2f}".replace(".", ",")
 def buscarProdutos():
     with engine.connect() as conexao:
         linhas = conexao.execute(
@@ -222,7 +225,7 @@ def buscarProdutos():
             "codigo": linha.codigo,
             "nome": linha.nome,
             "preco": linha.preco,
-            "precoTexto": f"R$ {linha.preco / 100:.2f}",
+            "precoTexto": formatarReais(linha.preco),
         })
     return produtos
 def buscarUsuarioDoLink(idLink):
@@ -272,7 +275,8 @@ def tratarPedido():
                     "nome": produto["nome"],
                     "quantidade": quantidade,
                     "preco": produto["preco"],
-                    "subtotalTexto": f"R$ {subtotal / 100:.2f}",
+                    "precoTexto": produto["precoTexto"],
+                    "subtotalTexto": formatarReais(subtotal),
                 })
                 totalPedido += subtotal
 
@@ -297,8 +301,8 @@ def tratarPedido():
         "pedido_confirmado.html",
         nome=usuario.nome,
         itens=itensPedido,
-        total=f"R$ {totalPedido / 100:.2f}",
-        divida=f"R$ {divida / 100:.2f}",
+        total=formatarReais(totalPedido),
+        divida=formatarReais(divida),
         voltar=voltar,
     )
 
