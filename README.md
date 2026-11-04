@@ -61,7 +61,7 @@ O servidor usa três tabelas do PostgreSQL do grupo, criadas no Beekeeper Studio
 O `banco/tabelas.sql` não cria tabelas: documenta as colunas esperadas e traz as consultas usadas.
 
 - `clientes`: id, nome, cpf, rfid, link, email, celular.
-- `produtos`: codigo, nome, preco (em centavos, como no Projeto 04: 2500 = R$ 25,00).
+- `produtos`: id, nome, preco (em centavos, como no Projeto 04: 2500 = R$ 25,00).
 - `consumos`: uma linha por produto pedido - cpf, codigo_produto, quantidade e preco no
   momento da compra (id e data_hora automáticos).
 
