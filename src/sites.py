@@ -76,7 +76,7 @@ def tratarDados():
     if not CPF().validate(cpfUsuario):
         return render_template("cpf_invalido.html"), 400
 
-    consulta = text('SELECT cpf FROM "_totem_ProjetoFinal" WHERE cpf = :cpf')
+    consulta = text('SELECT cpf FROM "Totem_Consumidores" WHERE cpf = :cpf')
 
     try:
         with engine.begin() as conexao:
@@ -86,7 +86,7 @@ def tratarDados():
             nomeUsuario = request.form.get("nome", "").strip()
             link = "http://192.168.4.1/loja?id=" + token_urlsafe(32) + cpfUsuario
             comando = text(
-                'INSERT INTO "_totem_ProjetoFinal" (nome, cpf, link) '
+                'INSERT INTO "Totem_Consumidores" (nome, cpf, link) '
                 "VALUES (:nome, :cpf, :link)"
             )
             conexao.execute(comando, {"nome": nomeUsuario, "cpf": cpfUsuario, "link": link})
@@ -114,14 +114,14 @@ def tratarDadosRfid():
     uid = leituraRFID
     try:
         with engine.begin() as conexao:
-            consulta = text('SELECT cpf FROM "_totem_ProjetoFinal" WHERE rfid = :rfid')
+            consulta = text('SELECT cpf FROM "Totem_Consumidores" WHERE rfid = :rfid')
             
             if conexao.execute(consulta, {"rfid": uid}) is not None:
                 leituraRFID = None
                 return {"estado": "erro", "mensagem": "RFID ja cadastrado. Aproxime outro cartao."}, 409
 
             resultado = conexao.execute(
-                text('UPDATE "_totem_ProjetoFinal" SET rfid = :rfid '
+                text('UPDATE "Totem_Consumidores" SET rfid = :rfid '
                      'WHERE cpf = :cpf'),
                 {"rfid": uid, "cpf": session["cpf"]},
             )
@@ -181,7 +181,7 @@ def cancelarCadastro():
     try:
         with engine.begin() as conexao:
             conexao.execute(
-                text('DELETE FROM "_totem_ProjetoFinal" WHERE cpf = :cpf'),
+                text('DELETE FROM "Totem_Consumidores" WHERE cpf = :cpf'),
                 {"cpf": session["cpf"]},
             )
     except SQLAlchemyError:
@@ -216,7 +216,7 @@ def formatarReais(centavos):
 def buscarProdutos():
     with engine.connect() as conexao:
         linhas = conexao.execute(
-            text('SELECT codigo, nome, preco FROM "_totem_produtos" ORDER BY codigo')
+            text('SELECT codigo, nome, preco FROM "Totem_Produtos" ORDER BY codigo')
         ).all()
 
     produtos = []
@@ -233,7 +233,7 @@ def buscarUsuarioDoLink(idLink):
     cpf = idLink[-11:]
     with engine.connect() as conexao:
         usuario = conexao.execute(
-            text('SELECT nome, cpf, link FROM "_totem_ProjetoFinal" WHERE cpf = :cpf'),
+            text('SELECT nome, cpf, link FROM "Totem_Consumidores" WHERE cpf = :cpf'),
             {"cpf": cpf},
         ).first()
 
@@ -243,7 +243,7 @@ def buscarUsuarioDoLink(idLink):
 def calcularDivida(cpf):
     with engine.connect() as conexao:
         linha = conexao.execute(
-            text('SELECT SUM(quantidade * preco) FROM "_totem_consumos" WHERE cpf = :cpf'),
+            text('SELECT SUM(quantidade * preco) FROM "Totem_Consumos" WHERE cpf = :cpf'),
             {"cpf": cpf},
         ).first()
 
@@ -286,7 +286,7 @@ def tratarPedido():
         with engine.begin() as conexao:
             for item in itensPedido:
                 conexao.execute(
-                    text('INSERT INTO "_totem_consumos" (cpf, codigo_produto, quantidade, preco) '
+                    text('INSERT INTO "Totem_Consumos" (cpf, codigo_produto, quantidade, preco) '
                          "VALUES (:cpf, :codigo, :quantidade, :preco)"),
                     {"cpf": usuario.cpf, "codigo": item["codigo"],
                      "quantidade": item["quantidade"], "preco": item["preco"]},
