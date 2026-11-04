@@ -76,7 +76,7 @@ def tratarDados():
     if not CPF().validate(cpfUsuario):
         return render_template("cpf_invalido.html"), 400
 
-    consulta = text('SELECT cpf FROM "consumidores" WHERE cpf = :cpf')
+    consulta = text('SELECT cpf FROM "clientes" WHERE cpf = :cpf')
 
     try:
         with engine.begin() as conexao:
@@ -86,7 +86,7 @@ def tratarDados():
             nomeUsuario = request.form.get("nome", "").strip()
             link = "http://192.168.4.1/loja?id=" + token_urlsafe(32) + cpfUsuario
             comando = text(
-                'INSERT INTO "consumidores" (nome, cpf, link) '
+                'INSERT INTO "clientes" (nome, cpf, link) '
                 "VALUES (:nome, :cpf, :link)"
             )
             conexao.execute(comando, {"nome": nomeUsuario, "cpf": cpfUsuario, "link": link})
@@ -114,14 +114,14 @@ def tratarDadosRfid():
     uid = leituraRFID
     try:
         with engine.begin() as conexao:
-            consulta = text('SELECT cpf FROM "consumidores" WHERE rfid = :rfid')
+            consulta = text('SELECT cpf FROM "clientes" WHERE rfid = :rfid')
             
             if conexao.execute(consulta, {"rfid": uid}) is not None:
                 leituraRFID = None
                 return {"estado": "erro", "mensagem": "RFID ja cadastrado. Aproxime outro cartao."}, 409
 
             resultado = conexao.execute(
-                text('UPDATE "consumidores" SET rfid = :rfid '
+                text('UPDATE "clientes" SET rfid = :rfid '
                      'WHERE cpf = :cpf'),
                 {"rfid": uid, "cpf": session["cpf"]},
             )
@@ -181,7 +181,7 @@ def cancelarCadastro():
     try:
         with engine.begin() as conexao:
             conexao.execute(
-                text('DELETE FROM "consumidores" WHERE cpf = :cpf'),
+                text('DELETE FROM "clientes" WHERE cpf = :cpf'),
                 {"cpf": session["cpf"]},
             )
     except SQLAlchemyError:
@@ -233,7 +233,7 @@ def buscarUsuarioDoLink(idLink):
     cpf = idLink[-11:]
     with engine.connect() as conexao:
         usuario = conexao.execute(
-            text('SELECT nome, cpf, link FROM "consumidores" WHERE cpf = :cpf'),
+            text('SELECT nome, cpf, link FROM "clientes" WHERE cpf = :cpf'),
             {"cpf": cpf},
         ).first()
 
