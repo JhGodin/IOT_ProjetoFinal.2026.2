@@ -49,7 +49,7 @@ ao LittleFS. O arquivo e acessado na placa como `/login.html`.
 Ao configurar a compilacao do ESP32, exclua `src/sites_teste.cpp`, que e
 especifico do Windows.
 
-## Semana 2 - Cardápio e registro de consumo (Gabriel)
+## Produtos, cardápio e registro de consumo (Gabriel, semanas 1 e 2)
 
 > Observação: as seções acima ("Arquivos", "Configuracao local", "Estado atual",
 > "Compilacao do teste Windows") descrevem a versão antiga do servidor em C++.
@@ -57,23 +57,37 @@ especifico do Windows.
 
 ### Banco de dados
 
-O script `banco/tabelas.sql` cria as duas tabelas novas (rodar uma vez no
-Beekeeper Studio) e documenta as consultas usadas:
+O servidor usa três tabelas do PostgreSQL do grupo, criadas no Beekeeper Studio.
+O `banco/tabelas.sql` não cria tabelas: documenta as colunas esperadas e traz as consultas usadas.
 
-- `_totem_ProjetoFinal` (já existia): usuários - nome, cpf, link, rfid.
-- `_totem_produtos`: cardápio - codigo, nome, preco (em centavos, como no Projeto 04).
-- `_totem_consumos`: uma linha por produto pedido - id e data_hora automáticos,
-  cpf, codigo_produto, quantidade e preco no momento da compra.
+- `clientes`: id, nome, cpf, rfid, link, email, celular.
+- `produtos`: codigo, nome, preco (em centavos, como no Projeto 04: 2500 = R$ 25,00).
+- `consumos`: uma linha por produto pedido - cpf, codigo_produto, quantidade e preco no
+  momento da compra (id e data_hora automáticos).
 
-### Rotas novas no `src/sites.py`
+Ao ligar, o servidor confere essas tabelas e mostra no terminal `Tabela ...: ok` ou o erro.
 
-- `GET /loja?id=...`: confere o `id` do link gerado no cadastro (coluna `link`),
-  busca os produtos no banco e mostra `templates/loja.html` com nome e preço.
-- `POST /loja?id=...`: lê as quantidades (`item1`, `item2`, ... = código do produto),
-  valida (quantidade não numérica/negativa ou pedido vazio), grava em
-  `_totem_consumos` e mostra `templates/pedido_confirmado.html` com o total do
-  pedido e o total já consumido pelo usuário no festival.
-- Erros aparecem em `templates/pedido_invalido.html`.
+### Rotas do `src/sites.py`
+
+Produtos (semana 1), só para o organizador:
+
+- `GET /produtos`: pede o login do organizador (o mesmo usuário e senha de `/avisos`,
+  `ADMIN_USUARIO` e `ADMIN_SENHA` do `credenciais.py`) e lista os produtos com código e preço.
+- `POST /produtos`: cadastra um produto (nome e preço em reais, como `25,90`, guardado em
+  centavos) ou remove um existente. Não é preciso fazer INSERT no banco.
+
+Consumo (semana 2):
+
+- `GET /loja?id=...`: confere o `id` do link do cliente (coluna `link`), busca os produtos
+  no banco e mostra `templates/loja.html` com nome e preço.
+- `POST /loja?id=...`: lê as quantidades (`item1`, `item2`, ... = código do produto), valida
+  (quantidade não numérica/negativa ou pedido vazio), grava em `consumos` e mostra
+  `templates/pedido_confirmado.html` com o total do pedido e o total já consumido pelo cliente.
+- Erros do pedido aparecem em `templates/pedido_invalido.html`.
+
+O link gerado no cadastro usa o endereço em que o servidor foi aberto (por exemplo
+`http://localhost:5000/loja?id=...`), não mais o IP fixo do ESP. Para clientes cadastrados
+antes dessa mudança, o `banco/tabelas.sql` tem um `UPDATE` que corrige os links antigos.
 
 ### Estilo único (`src/static/estilo.css`)
 
@@ -84,21 +98,18 @@ quantidade, tabela) fica em `src/static/estilo.css`. Cada página do Flask impor
 <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
 ```
 
-O Flask serve a pasta `static` sozinho. Já usam: `loja.html`, `pedido_confirmado.html`
-e `pedido_invalido.html`. As demais páginas podem trocar o `<style>` por essa linha.
-O `cardapio.html` servido pelo ESP continua com o estilo dentro do arquivo.
-
-O `templates/cardapio.html` original continua igual (é o usado pelo
-`ESP_cardapio.cpp`). O `loja.html` é a mesma página, mas com os itens vindos do banco.
+O Flask serve a pasta `static` sozinho. Já usam: `loja.html`, `pedido_confirmado.html`,
+`pedido_invalido.html` e `produtos.html`. As demais páginas podem trocar o `<style>` por essa linha.
+O `templates/cardapio.html` original continua igual (é o usado pelo `ESP_cardapio.cpp`);
+o `loja.html` é a mesma página, mas com os itens vindos do banco.
 
 ### Como testar
 
-1. Rodar `banco/tabelas.sql` no banco do grupo.
-2. Rodar `python src/sites.py` e fazer um cadastro em `http://localhost:5000/`.
-3. Copiar o `id` da coluna `link` do usuário e abrir
-   `http://localhost:5000/loja?id=<id>`.
-4. Escolher os itens, confirmar e conferir as linhas novas em `_totem_consumos`.
-
-Pendente com o grupo: o link gerado no cadastro ainda aponta para
-`http://192.168.4.1/loja` (ESP). Se a loja ficar no servidor Flask, basta trocar
-o começo do link pelo endereço do computador que roda o `sites.py`.
+1. Copiar `exemplos/credenciais.exemplo.py` para `src/credenciais/credenciais.py` e preencher
+   (banco, MQTT e `ADMIN_USUARIO`/`ADMIN_SENHA`).
+2. Dentro da pasta `src`, rodar `python sites.py`. O terminal deve mostrar `Tabela clientes: ok`,
+   `Tabela produtos: ok` e `Tabela consumos: ok`.
+3. Abrir `http://localhost:5000/produtos`, entrar como organizador e cadastrar alguns produtos.
+4. Fazer um cadastro em `http://localhost:5000/` (nome e CPF válido).
+5. No Beekeeper, rodar `SELECT nome, link FROM clientes;` e abrir o link do cliente no navegador.
+6. Escolher os itens, confirmar e conferir as linhas novas em `consumos`.

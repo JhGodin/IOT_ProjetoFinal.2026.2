@@ -8,7 +8,7 @@
 </head>
 <body>
   <h1>Login do organizador</h1>
-  <form action="/avisos" method="POST">
+  <form action="{{ destino or '/avisos' }}" method="POST">
     <label for="campo-usuario">Usuario</label><br>
     <input id="campo-usuario" name="usuario" type="text" required><br>
     <label for="campo-senha">Senha</label><br>

@@ -84,7 +84,8 @@ def tratarDados():
                 return render_template("cpf_ja_registrado.html"), 409
 
             nomeUsuario = request.form.get("nome", "").strip()
-            link = "http://192.168.4.1/loja?id=" + token_urlsafe(32) + cpfUsuario
+            # ///////gabriel/////// o link usa o endereco em que o servidor foi aberto (host_url), nao um IP fixo
+            link = request.host_url + "loja?id=" + token_urlsafe(32) + cpfUsuario
             comando = text(
                 'INSERT INTO "clientes" (nome, cpf, link) '
                 "VALUES (:nome, :cpf, :link)"
@@ -102,7 +103,7 @@ def tratarDados():
 def tratarDadosRfid():
     global leituraRFID
 
-    if "cpf" not in session or "link" not in session:
+    if "cpf" not in session:
         return {"estado": "erro", "mensagem": "Faca o login novamente."}, 401
     
     if session.get("rfid"):
@@ -116,7 +117,7 @@ def tratarDadosRfid():
         with engine.begin() as conexao:
             consulta = text('SELECT cpf FROM "clientes" WHERE rfid = :rfid')
             
-            if conexao.execute(consulta, {"rfid": uid}) is not None:
+            if conexao.execute(consulta, {"rfid": uid}).first() is not None:
                 leituraRFID = None
                 return {"estado": "erro", "mensagem": "RFID ja cadastrado. Aproxime outro cartao."}, 409
 
@@ -243,7 +244,7 @@ def buscarUsuarioDoLink(idLink):
 def calcularDivida(cpf):
     with engine.connect() as conexao:
         linha = conexao.execute(
-            text('SELECT SUM(quantidade * preco) FROM "consumidos" WHERE cpf = :cpf'),
+            text('SELECT SUM(quantidade * preco) FROM "consumos" WHERE cpf = :cpf'),
             {"cpf": cpf},
         ).first()
 
@@ -286,7 +287,7 @@ def tratarPedido():
         with engine.begin() as conexao:
             for item in itensPedido:
                 conexao.execute(
-                    text('INSERT INTO "consumidos" (cpf, codigo_produto, quantidade, preco) '
+                    text('INSERT INTO "consumos" (cpf, codigo_produto, quantidade, preco) '
                          "VALUES (:cpf, :codigo, :quantidade, :preco)"),
                     {"cpf": usuario.cpf, "codigo": item["codigo"],
                      "quantidade": item["quantidade"], "preco": item["preco"]},
@@ -294,7 +295,8 @@ def tratarPedido():
 
         divida = calcularDivida(usuario.cpf)
 
-    except SQLAlchemyError:
+    except SQLAlchemyError as erro:
+        print(erro, flush=True)  # o motivo real do erro aparece no terminal
         return "Nao foi possivel registrar o pedido no banco de dados.", 500
 
     return render_template(
@@ -315,7 +317,8 @@ def mostrarCardapio():
         if usuario is None:
             return render_template("pedido_invalido.html", mensagem="Link de cardápio inválido.", voltar=None), 404
         produtos = buscarProdutos()
-    except SQLAlchemyError:
+    except SQLAlchemyError as erro:
+        print(erro, flush=True)  # o motivo real do erro aparece no terminal
         return "Nao foi possivel acessar o banco de dados.", 500
 
     return render_template("loja.html", nome=usuario.nome, produtos=produtos)
@@ -324,7 +327,89 @@ def receberPedido():
     return tratarPedido()
 
 
+# ///////gabriel/////// semana 1: cadastro e listagem de produtos pelo site (so o organizador)
+# Assim o cardapio nao depende de INSERT feito na mao no Beekeeper.
+def mostrarProdutos(erro=None, status=200):
+    produtos = []
+    try:
+        produtos = buscarProdutos()
+    except SQLAlchemyError as erroBanco:
+        print(erroBanco, flush=True)
+        erro = "Não foi possível ler os produtos no banco de dados."
+        status = 500
+
+    return render_template("produtos.html", produtos=produtos, erro=erro), status
+def tratarProduto():
+    if request.form.get("acao") == "remover":
+        codigo = request.form.get("codigo", "")
+        if codigo.isdigit():
+            try:
+                with engine.begin() as conexao:
+                    conexao.execute(
+                        text('DELETE FROM "produtos" WHERE codigo = :codigo'),
+                        {"codigo": int(codigo)},
+                    )
+            except SQLAlchemyError as erro:
+                print(erro, flush=True)
+                return mostrarProdutos("Não foi possível remover o produto.", 500)
+        return redirect("/produtos", code=303)
+
+    nome = request.form.get("nome", "").strip()[:60]
+    try:
+        # O preco e digitado em reais ("25,90") e guardado em centavos (2590).
+        preco = round(float(request.form.get("preco", "").replace(",", ".")) * 100)
+    except (ValueError, OverflowError):
+        preco = 0
+
+    if nome == "" or preco <= 0 or preco > 1000000:
+        return mostrarProdutos("Informe o nome e um preço entre R$ 0,01 e R$ 10.000,00.", 400)
+
+    try:
+        with engine.begin() as conexao:
+            # O codigo do novo produto e o maior codigo atual + 1.
+            conexao.execute(
+                text('INSERT INTO "produtos" (codigo, nome, preco) '
+                     'VALUES ((SELECT COALESCE(MAX(codigo), 0) + 1 FROM "produtos"), :nome, :preco)'),
+                {"nome": nome, "preco": preco},
+            )
+    except SQLAlchemyError as erro:
+        print(erro, flush=True)
+        return mostrarProdutos("Não foi possível gravar o produto no banco de dados.", 500)
+
+    return redirect("/produtos", code=303)
+@app.route("/produtos", methods=["GET", "POST"])
+def paginaProdutos():
+    # Usa o mesmo login do organizador da pagina /avisos.
+    if not session.get("admin"):
+        if request.method == "POST":
+            if request.form.get("usuario") == ADMIN_USUARIO and request.form.get("senha") == ADMIN_SENHA:
+                session["admin"] = True
+            return redirect("/produtos", code=303)
+        return render_template("admin_login.html", destino="/produtos")
+
+    if request.method == "POST":
+        return tratarProduto()
+    return mostrarProdutos()
+
+
+def verificarTabelas():
+    # Ao ligar o servidor, mostra no terminal se alguma tabela ou coluna esta diferente do esperado.
+    testes = {
+        "clientes": 'SELECT nome, cpf, link, rfid FROM "clientes" LIMIT 1',
+        "produtos": 'SELECT codigo, nome, preco FROM "produtos" LIMIT 1',
+        "consumos": 'SELECT cpf, codigo_produto, quantidade, preco FROM "consumos" LIMIT 1',
+    }
+    for tabela, consulta in testes.items():
+        try:
+            with engine.connect() as conexao:
+                conexao.execute(text(consulta)).all()
+            print(f"Tabela {tabela}: ok", flush=True)
+        except SQLAlchemyError as erro:
+            print(f"Tabela {tabela}: ERRO -> {getattr(erro, 'orig', erro)}", flush=True)
+
+
 if __name__ == "__main__":
+    verificarTabelas()
     try:
         app.run(debug=True, port=5000, use_reloader=False)
     finally:

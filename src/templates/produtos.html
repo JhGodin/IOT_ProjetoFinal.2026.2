@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Produtos</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+  <!-- ///////gabriel/////// cadastro e listagem de produtos (tabela produtos), so para o organizador -->
+  <main class="container">
+    <header class="cabecalho">
+      <p class="local">Painel do organizador</p>
+      <h1>Produtos</h1>
+      <p>Os itens cadastrados aqui aparecem no cardápio dos clientes.</p>
+    </header>
+
+    {% if erro %}
+    <div class="aviso-erro" role="alert">
+      <p>{{ erro }}</p>
+    </div>
+    {% endif %}
+
+    <section class="card mb-4">
+      <h2 class="card-header">Novo produto</h2>
+      <form class="card-body" method="POST">
+        <label for="campo-nome">Nome</label>
+        <input id="campo-nome" class="form-control" name="nome" type="text" maxlength="60" required>
+
+        <label for="campo-preco">Preço (R$)</label>
+        <input id="campo-preco" class="form-control" name="preco" type="text" inputmode="decimal" placeholder="25,90" required>
+
+        <button type="submit" class="btn btn-primary btn-largo">Cadastrar produto</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 class="card-header">Cardápio atual</h2>
+      <div class="card-body">
+        {% if produtos %}
+        <table class="tabela">
+          <tr>
+            <th>Produto</th>
+            <th class="num">Preço</th>
+            <th></th>
+          </tr>
+          {% for produto in produtos %}
+          <tr>
+            <td>
+              {{ produto.nome }}
+              <span class="detalhe">Código {{ produto.codigo }}</span>
+            </td>
+            <td class="num valor">{{ produto.precoTexto }}</td>
+            <td>
+              <form method="POST">
+                <input type="hidden" name="acao" value="remover">
+                <input type="hidden" name="codigo" value="{{ produto.codigo }}">
+                <button type="submit" class="btn btn-discreto" aria-label="Remover {{ produto.nome }}">Remover</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <p>Nenhum produto cadastrado ainda. Use o formulário acima para adicionar o primeiro item do cardápio.</p>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+</body>
+</html>
