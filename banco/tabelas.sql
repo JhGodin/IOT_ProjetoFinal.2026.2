@@ -4,7 +4,7 @@
 --
 --   clientes (id, nome, cpf, rfid, link, email, celular)
 --       cadastro (rota /) e registro do cartao (rota /rfid)
---   produtos (codigo, nome, preco)
+--   produtos (id, nome, preco)
 --       cardapio. preco em centavos, como no Projeto 04: 2500 = R$ 25,00
 --       os produtos sao cadastrados pela pagina /produtos do servidor, sem INSERT manual
 --   consumos (cpf, codigo_produto, quantidade, preco, ...)
@@ -42,6 +42,6 @@ WHERE u.rfid = 'E0 E0 95 13';
 -- Quantidade vendida por produto (base do dashboard da semana 3)
 SELECT p.nome, SUM(c.quantidade) AS vendidos
 FROM consumos c
-JOIN produtos p ON p.codigo = c.codigo_produto
+JOIN produtos p ON p.id = c.codigo_produto
 GROUP BY p.nome
 ORDER BY vendidos DESC;

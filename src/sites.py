@@ -217,7 +217,7 @@ def formatarReais(centavos):
 def buscarProdutos():
     with engine.connect() as conexao:
         linhas = conexao.execute(
-            text('SELECT codigo, nome, preco FROM "produtos" ORDER BY codigo')
+            text('SELECT id AS codigo, nome, preco FROM "produtos" ORDER BY id')
         ).all()
 
     produtos = []
@@ -346,7 +346,7 @@ def tratarProduto():
             try:
                 with engine.begin() as conexao:
                     conexao.execute(
-                        text('DELETE FROM "produtos" WHERE codigo = :codigo'),
+                        text('DELETE FROM "produtos" WHERE id = :codigo'),
                         {"codigo": int(codigo)},
                     )
             except SQLAlchemyError as erro:
@@ -368,8 +368,8 @@ def tratarProduto():
         with engine.begin() as conexao:
             # O codigo do novo produto e o maior codigo atual + 1.
             conexao.execute(
-                text('INSERT INTO "produtos" (codigo, nome, preco) '
-                     'VALUES ((SELECT COALESCE(MAX(codigo), 0) + 1 FROM "produtos"), :nome, :preco)'),
+                text('INSERT INTO "produtos" (id, nome, preco) '
+                     'VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM "produtos"), :nome, :preco)'),
                 {"nome": nome, "preco": preco},
             )
     except SQLAlchemyError as erro:
@@ -396,7 +396,7 @@ def verificarTabelas():
     # Ao ligar o servidor, mostra no terminal se alguma tabela ou coluna esta diferente do esperado.
     testes = {
         "clientes": 'SELECT nome, cpf, link, rfid FROM "clientes" LIMIT 1',
-        "produtos": 'SELECT codigo, nome, preco FROM "produtos" LIMIT 1',
+        "produtos": 'SELECT id, nome, preco FROM "produtos" LIMIT 1',
         "consumos": 'SELECT cpf, codigo_produto, quantidade, preco FROM "consumos" LIMIT 1',
     }
     for tabela, consulta in testes.items():
