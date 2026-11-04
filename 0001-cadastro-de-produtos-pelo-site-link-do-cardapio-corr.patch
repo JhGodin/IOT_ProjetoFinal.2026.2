@@ -1,0 +1,522 @@
+From b5cfabafda6e519f7d48dc6c2e5e1d01a0c456e5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 15:20:30 -0300
+Subject: [PATCH] cadastro de produtos pelo site, link do cardapio corrigido e
+ tabelas novas
+
+- sites.py: tabelas clientes/produtos/consumos (corrige "consumidos" -> "consumos")
+- link do cadastro usa o endereco em que o servidor foi aberto (request.host_url), nao 192.168.4.1
+- nova pagina /produtos (login do organizador): cadastra, lista e remove produtos (semana 1)
+- ao ligar, verificarTabelas() mostra no terminal se alguma tabela/coluna esta errada;
+  erros de banco da loja tambem aparecem no terminal
+- RFID: corrige session["link"] (o /rfid respondia sempre 401) e o .first() (todo cartao parecia repetido)
+- banco/tabelas.sql sem CREATE TABLE, com os nomes novos e UPDATE para corrigir links antigos
+- README, estilo.css (botao de remover), admin_login.html (destino do login) e credenciais.exemplo.py (ADMIN_*)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KyGTke7jY6vFZF8N9UYbtB
+---
+ README.md                       | 71 +++++++++++++----------
+ banco/tabelas.sql               | 74 +++++++++++-------------
+ exemplos/credenciais.exemplo.py |  4 ++
+ src/sites.py                    | 99 ++++++++++++++++++++++++++++++---
+ src/static/estilo.css           | 24 ++++++++
+ src/templates/admin_login.html  |  2 +-
+ src/templates/produtos.html     | 72 ++++++++++++++++++++++++
+ 7 files changed, 266 insertions(+), 80 deletions(-)
+ create mode 100644 src/templates/produtos.html
+
+diff --git a/README.md b/README.md
+index f7e0495..865adc5 100644
+--- a/README.md
++++ b/README.md
+@@ -49,7 +49,7 @@ ao LittleFS. O arquivo e acessado na placa como `/login.html`.
+ Ao configurar a compilacao do ESP32, exclua `src/sites_teste.cpp`, que e
+ especifico do Windows.
+ 
+-## Semana 2 - Cardápio e registro de consumo (Gabriel)
++## Produtos, cardápio e registro de consumo (Gabriel, semanas 1 e 2)
+ 
+ > Observação: as seções acima ("Arquivos", "Configuracao local", "Estado atual",
+ > "Compilacao do teste Windows") descrevem a versão antiga do servidor em C++.
+@@ -57,23 +57,37 @@ especifico do Windows.
+ 
+ ### Banco de dados
+ 
+-O script `banco/tabelas.sql` cria as duas tabelas novas (rodar uma vez no
+-Beekeeper Studio) e documenta as consultas usadas:
++O servidor usa três tabelas do PostgreSQL do grupo, criadas no Beekeeper Studio.
++O `banco/tabelas.sql` não cria tabelas: documenta as colunas esperadas e traz as consultas usadas.
+ 
+-- `_totem_ProjetoFinal` (já existia): usuários - nome, cpf, link, rfid.
+-- `_totem_produtos`: cardápio - codigo, nome, preco (em centavos, como no Projeto 04).
+-- `_totem_consumos`: uma linha por produto pedido - id e data_hora automáticos,
+-  cpf, codigo_produto, quantidade e preco no momento da compra.
++- `clientes`: id, nome, cpf, rfid, link, email, celular.
++- `produtos`: codigo, nome, preco (em centavos, como no Projeto 04: 2500 = R$ 25,00).
++- `consumos`: uma linha por produto pedido - cpf, codigo_produto, quantidade e preco no
++  momento da compra (id e data_hora automáticos).
+ 
+-### Rotas novas no `src/sites.py`
++Ao ligar, o servidor confere essas tabelas e mostra no terminal `Tabela ...: ok` ou o erro.
+ 
+-- `GET /loja?id=...`: confere o `id` do link gerado no cadastro (coluna `link`),
+-  busca os produtos no banco e mostra `templates/loja.html` com nome e preço.
+-- `POST /loja?id=...`: lê as quantidades (`item1`, `item2`, ... = código do produto),
+-  valida (quantidade não numérica/negativa ou pedido vazio), grava em
+-  `_totem_consumos` e mostra `templates/pedido_confirmado.html` com o total do
+-  pedido e o total já consumido pelo usuário no festival.
+-- Erros aparecem em `templates/pedido_invalido.html`.
++### Rotas do `src/sites.py`
++
++Produtos (semana 1), só para o organizador:
++
++- `GET /produtos`: pede o login do organizador (o mesmo usuário e senha de `/avisos`,
++  `ADMIN_USUARIO` e `ADMIN_SENHA` do `credenciais.py`) e lista os produtos com código e preço.
++- `POST /produtos`: cadastra um produto (nome e preço em reais, como `25,90`, guardado em
++  centavos) ou remove um existente. Não é preciso fazer INSERT no banco.
++
++Consumo (semana 2):
++
++- `GET /loja?id=...`: confere o `id` do link do cliente (coluna `link`), busca os produtos
++  no banco e mostra `templates/loja.html` com nome e preço.
++- `POST /loja?id=...`: lê as quantidades (`item1`, `item2`, ... = código do produto), valida
++  (quantidade não numérica/negativa ou pedido vazio), grava em `consumos` e mostra
++  `templates/pedido_confirmado.html` com o total do pedido e o total já consumido pelo cliente.
++- Erros do pedido aparecem em `templates/pedido_invalido.html`.
++
++O link gerado no cadastro usa o endereço em que o servidor foi aberto (por exemplo
++`http://localhost:5000/loja?id=...`), não mais o IP fixo do ESP. Para clientes cadastrados
++antes dessa mudança, o `banco/tabelas.sql` tem um `UPDATE` que corrige os links antigos.
+ 
+ ### Estilo único (`src/static/estilo.css`)
+ 
+@@ -84,21 +98,18 @@ quantidade, tabela) fica em `src/static/estilo.css`. Cada página do Flask impor
+ <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+ ```
+ 
+-O Flask serve a pasta `static` sozinho. Já usam: `loja.html`, `pedido_confirmado.html`
+-e `pedido_invalido.html`. As demais páginas podem trocar o `<style>` por essa linha.
+-O `cardapio.html` servido pelo ESP continua com o estilo dentro do arquivo.
+-
+-O `templates/cardapio.html` original continua igual (é o usado pelo
+-`ESP_cardapio.cpp`). O `loja.html` é a mesma página, mas com os itens vindos do banco.
++O Flask serve a pasta `static` sozinho. Já usam: `loja.html`, `pedido_confirmado.html`,
++`pedido_invalido.html` e `produtos.html`. As demais páginas podem trocar o `<style>` por essa linha.
++O `templates/cardapio.html` original continua igual (é o usado pelo `ESP_cardapio.cpp`);
++o `loja.html` é a mesma página, mas com os itens vindos do banco.
+ 
+ ### Como testar
+ 
+-1. Rodar `banco/tabelas.sql` no banco do grupo.
+-2. Rodar `python src/sites.py` e fazer um cadastro em `http://localhost:5000/`.
+-3. Copiar o `id` da coluna `link` do usuário e abrir
+-   `http://localhost:5000/loja?id=<id>`.
+-4. Escolher os itens, confirmar e conferir as linhas novas em `_totem_consumos`.
+-
+-Pendente com o grupo: o link gerado no cadastro ainda aponta para
+-`http://192.168.4.1/loja` (ESP). Se a loja ficar no servidor Flask, basta trocar
+-o começo do link pelo endereço do computador que roda o `sites.py`.
++1. Copiar `exemplos/credenciais.exemplo.py` para `src/credenciais/credenciais.py` e preencher
++   (banco, MQTT e `ADMIN_USUARIO`/`ADMIN_SENHA`).
++2. Dentro da pasta `src`, rodar `python sites.py`. O terminal deve mostrar `Tabela clientes: ok`,
++   `Tabela produtos: ok` e `Tabela consumos: ok`.
++3. Abrir `http://localhost:5000/produtos`, entrar como organizador e cadastrar alguns produtos.
++4. Fazer um cadastro em `http://localhost:5000/` (nome e CPF válido).
++5. No Beekeeper, rodar `SELECT nome, link FROM clientes;` e abrir o link do cliente no navegador.
++6. Escolher os itens, confirmar e conferir as linhas novas em `consumos`.
+diff --git a/banco/tabelas.sql b/banco/tabelas.sql
+index 9a5cf07..b5cf7a4 100644
+--- a/banco/tabelas.sql
++++ b/banco/tabelas.sql
+@@ -1,57 +1,47 @@
+--- ///////gabriel/////// esquema do banco do totem (PostgreSQL)
+--- Rodar uma vez no Beekeeper Studio, no banco do grupo.
+--- Precos em centavos (inteiro), como na tabela produtos do Projeto 04: 2500 = R$ 25.00
+-
+-
+--- Usuarios: tabela que ja existe e e usada pelo cadastro (rotas / e /rfid do sites.py).
+--- Fica aqui so como documentacao das colunas; nao precisa rodar de novo.
+--- "_totem_ProjetoFinal" (nome, cpf, link, rfid)
+-
+-
+--- Produtos do cardapio. O codigo de cada produto vira o nome do campo no formulario:
+--- codigo 1 -> campo "item1", codigo 2 -> "item2" ... (mesmo padrao do cardapio.html)
+-CREATE TABLE "_totem_produtos" (
+-    codigo INTEGER PRIMARY KEY,
+-    nome TEXT NOT NULL,
+-    preco INTEGER NOT NULL
+-);
+-
+-INSERT INTO "_totem_produtos" (codigo, nome, preco) VALUES
+-(1, 'Hambúrguer', 2500),
+-(2, 'Batata frita', 1500),
+-(3, 'Refrigerante', 800),
+-(4, 'Água', 500);
+-
+-
+--- Consumos: uma linha por produto de cada pedido feito pelo site (/loja).
+--- id e data_hora sao automaticos (como a tabela vendas do P04 e consumos do P05).
+--- preco guarda o preco do produto no momento da compra.
+-CREATE TABLE "_totem_consumos" (
+-    id SERIAL PRIMARY KEY,
+-    data_hora TIMESTAMP DEFAULT NOW(),
+-    cpf TEXT NOT NULL,
+-    codigo_produto INTEGER NOT NULL,
+-    quantidade INTEGER NOT NULL,
+-    preco INTEGER NOT NULL
+-);
++-- ///////gabriel/////// consultas do banco do totem (PostgreSQL)
++-- Este arquivo NAO cria tabelas: elas ja existem no banco do grupo (criadas no Beekeeper Studio).
++-- Colunas que o src/sites.py espera encontrar:
++--
++--   clientes (id, nome, cpf, rfid, link, email, celular)
++--       cadastro (rota /) e registro do cartao (rota /rfid)
++--   produtos (codigo, nome, preco)
++--       cardapio. preco em centavos, como no Projeto 04: 2500 = R$ 25,00
++--       os produtos sao cadastrados pela pagina /produtos do servidor, sem INSERT manual
++--   consumos (cpf, codigo_produto, quantidade, preco, ...)
++--       uma linha por produto de cada pedido feito em /loja (como a tabela consumos do Projeto 05)
++--       preco guarda o preco do produto no momento da compra
++--       id e data_hora devem ser automaticos, porque o servidor nao envia esses campos
++--
++-- Ao ligar, o servidor confere essas colunas e mostra no terminal "Tabela ...: ok" ou o erro.
++
++
++-- Corrigir links de clientes cadastrados antes (apontavam para o IP do ESP, 192.168.4.1).
++-- Troque o endereco pelo do computador que roda o sites.py:
++UPDATE clientes
++SET link = REPLACE(link, 'http://192.168.4.1/', 'http://127.0.0.1:5000/')
++WHERE link LIKE 'http://192.168.4.1/%';
+ 
+ 
+ -- Consultas uteis -------------------------------------------------------------
+ 
+--- Total a pagar de um usuario pelo CPF (e o que aparece na tela de confirmacao)
++-- Link do cardapio de cada cliente
++SELECT nome, link
++FROM clientes;
++
++-- Total a pagar de um cliente pelo CPF (e o que aparece na tela de confirmacao)
+ SELECT SUM(quantidade * preco) AS total
+-FROM "_totem_consumos"
++FROM consumos
+ WHERE cpf = '12345678909';
+ 
+ -- Total a pagar pelo RFID (para o pagamento na saida - Lucas)
+ SELECT SUM(c.quantidade * c.preco) AS total
+-FROM "_totem_consumos" c
+-JOIN "_totem_ProjetoFinal" u ON u.cpf = c.cpf
++FROM consumos c
++JOIN clientes u ON u.cpf = c.cpf
+ WHERE u.rfid = 'E0 E0 95 13';
+ 
+ -- Quantidade vendida por produto (base do dashboard da semana 3)
+ SELECT p.nome, SUM(c.quantidade) AS vendidos
+-FROM "_totem_consumos" c
+-JOIN "_totem_produtos" p ON p.codigo = c.codigo_produto
++FROM consumos c
++JOIN produtos p ON p.codigo = c.codigo_produto
+ GROUP BY p.nome
+ ORDER BY vendidos DESC;
+diff --git a/exemplos/credenciais.exemplo.py b/exemplos/credenciais.exemplo.py
+index 991ca57..626ff83 100644
+--- a/exemplos/credenciais.exemplo.py
++++ b/exemplos/credenciais.exemplo.py
+@@ -16,3 +16,7 @@ BD_SENHA = "SENHA_DO_BANCO"
+ MQTT_CLIENTE_ID = "ID_UNICO_DO_SERVIDOR_PYTHON"
+ MQTT_USUARIO = "USUARIO_MQTT"
+ MQTT_SENHA = "SENHA_MQTT"
++
++# Paginas do organizador (/avisos e /produtos): usuario e senha de acesso.
++ADMIN_USUARIO = "USUARIO_DO_ORGANIZADOR"
++ADMIN_SENHA = "SENHA_DO_ORGANIZADOR"
+diff --git a/src/sites.py b/src/sites.py
+index 90aefef..e9541ac 100644
+--- a/src/sites.py
++++ b/src/sites.py
+@@ -84,7 +84,8 @@ def tratarDados():
+                 return render_template("cpf_ja_registrado.html"), 409
+ 
+             nomeUsuario = request.form.get("nome", "").strip()
+-            link = "http://192.168.4.1/loja?id=" + token_urlsafe(32) + cpfUsuario
++            # ///////gabriel/////// o link usa o endereco em que o servidor foi aberto (host_url), nao um IP fixo
++            link = request.host_url + "loja?id=" + token_urlsafe(32) + cpfUsuario
+             comando = text(
+                 'INSERT INTO "clientes" (nome, cpf, link) '
+                 "VALUES (:nome, :cpf, :link)"
+@@ -102,7 +103,7 @@ def tratarDados():
+ def tratarDadosRfid():
+     global leituraRFID
+ 
+-    if "cpf" not in session or "link" not in session:
++    if "cpf" not in session:
+         return {"estado": "erro", "mensagem": "Faca o login novamente."}, 401
+     
+     if session.get("rfid"):
+@@ -116,7 +117,7 @@ def tratarDadosRfid():
+         with engine.begin() as conexao:
+             consulta = text('SELECT cpf FROM "clientes" WHERE rfid = :rfid')
+             
+-            if conexao.execute(consulta, {"rfid": uid}) is not None:
++            if conexao.execute(consulta, {"rfid": uid}).first() is not None:
+                 leituraRFID = None
+                 return {"estado": "erro", "mensagem": "RFID ja cadastrado. Aproxime outro cartao."}, 409
+ 
+@@ -243,7 +244,7 @@ def buscarUsuarioDoLink(idLink):
+ def calcularDivida(cpf):
+     with engine.connect() as conexao:
+         linha = conexao.execute(
+-            text('SELECT SUM(quantidade * preco) FROM "consumidos" WHERE cpf = :cpf'),
++            text('SELECT SUM(quantidade * preco) FROM "consumos" WHERE cpf = :cpf'),
+             {"cpf": cpf},
+         ).first()
+ 
+@@ -286,7 +287,7 @@ def tratarPedido():
+         with engine.begin() as conexao:
+             for item in itensPedido:
+                 conexao.execute(
+-                    text('INSERT INTO "consumidos" (cpf, codigo_produto, quantidade, preco) '
++                    text('INSERT INTO "consumos" (cpf, codigo_produto, quantidade, preco) '
+                          "VALUES (:cpf, :codigo, :quantidade, :preco)"),
+                     {"cpf": usuario.cpf, "codigo": item["codigo"],
+                      "quantidade": item["quantidade"], "preco": item["preco"]},
+@@ -294,7 +295,8 @@ def tratarPedido():
+ 
+         divida = calcularDivida(usuario.cpf)
+ 
+-    except SQLAlchemyError:
++    except SQLAlchemyError as erro:
++        print(erro, flush=True)  # o motivo real do erro aparece no terminal
+         return "Nao foi possivel registrar o pedido no banco de dados.", 500
+ 
+     return render_template(
+@@ -315,7 +317,8 @@ def mostrarCardapio():
+         if usuario is None:
+             return render_template("pedido_invalido.html", mensagem="Link de cardápio inválido.", voltar=None), 404
+         produtos = buscarProdutos()
+-    except SQLAlchemyError:
++    except SQLAlchemyError as erro:
++        print(erro, flush=True)  # o motivo real do erro aparece no terminal
+         return "Nao foi possivel acessar o banco de dados.", 500
+ 
+     return render_template("loja.html", nome=usuario.nome, produtos=produtos)
+@@ -324,7 +327,89 @@ def receberPedido():
+     return tratarPedido()
+ 
+ 
++# ///////gabriel/////// semana 1: cadastro e listagem de produtos pelo site (so o organizador)
++# Assim o cardapio nao depende de INSERT feito na mao no Beekeeper.
++def mostrarProdutos(erro=None, status=200):
++    produtos = []
++    try:
++        produtos = buscarProdutos()
++    except SQLAlchemyError as erroBanco:
++        print(erroBanco, flush=True)
++        erro = "Não foi possível ler os produtos no banco de dados."
++        status = 500
++
++    return render_template("produtos.html", produtos=produtos, erro=erro), status
++def tratarProduto():
++    if request.form.get("acao") == "remover":
++        codigo = request.form.get("codigo", "")
++        if codigo.isdigit():
++            try:
++                with engine.begin() as conexao:
++                    conexao.execute(
++                        text('DELETE FROM "produtos" WHERE codigo = :codigo'),
++                        {"codigo": int(codigo)},
++                    )
++            except SQLAlchemyError as erro:
++                print(erro, flush=True)
++                return mostrarProdutos("Não foi possível remover o produto.", 500)
++        return redirect("/produtos", code=303)
++
++    nome = request.form.get("nome", "").strip()[:60]
++    try:
++        # O preco e digitado em reais ("25,90") e guardado em centavos (2590).
++        preco = round(float(request.form.get("preco", "").replace(",", ".")) * 100)
++    except (ValueError, OverflowError):
++        preco = 0
++
++    if nome == "" or preco <= 0 or preco > 1000000:
++        return mostrarProdutos("Informe o nome e um preço entre R$ 0,01 e R$ 10.000,00.", 400)
++
++    try:
++        with engine.begin() as conexao:
++            # O codigo do novo produto e o maior codigo atual + 1.
++            conexao.execute(
++                text('INSERT INTO "produtos" (codigo, nome, preco) '
++                     'VALUES ((SELECT COALESCE(MAX(codigo), 0) + 1 FROM "produtos"), :nome, :preco)'),
++                {"nome": nome, "preco": preco},
++            )
++    except SQLAlchemyError as erro:
++        print(erro, flush=True)
++        return mostrarProdutos("Não foi possível gravar o produto no banco de dados.", 500)
++
++    return redirect("/produtos", code=303)
++@app.route("/produtos", methods=["GET", "POST"])
++def paginaProdutos():
++    # Usa o mesmo login do organizador da pagina /avisos.
++    if not session.get("admin"):
++        if request.method == "POST":
++            if request.form.get("usuario") == ADMIN_USUARIO and request.form.get("senha") == ADMIN_SENHA:
++                session["admin"] = True
++            return redirect("/produtos", code=303)
++        return render_template("admin_login.html", destino="/produtos")
++
++    if request.method == "POST":
++        return tratarProduto()
++    return mostrarProdutos()
++
++
++def verificarTabelas():
++    # Ao ligar o servidor, mostra no terminal se alguma tabela ou coluna esta diferente do esperado.
++    testes = {
++        "clientes": 'SELECT nome, cpf, link, rfid FROM "clientes" LIMIT 1',
++        "produtos": 'SELECT codigo, nome, preco FROM "produtos" LIMIT 1',
++        "consumos": 'SELECT cpf, codigo_produto, quantidade, preco FROM "consumos" LIMIT 1',
++    }
++    for tabela, consulta in testes.items():
++        try:
++            with engine.connect() as conexao:
++                conexao.execute(text(consulta)).all()
++            print(f"Tabela {tabela}: ok", flush=True)
++        except SQLAlchemyError as erro:
++            print(f"Tabela {tabela}: ERRO -> {getattr(erro, 'orig', erro)}", flush=True)
++
++
+ if __name__ == "__main__":
++    verificarTabelas()
+     try:
+         app.run(debug=True, port=5000, use_reloader=False)
+     finally:
+diff --git a/src/static/estilo.css b/src/static/estilo.css
+index e13caa6..e5f40a0 100644
+--- a/src/static/estilo.css
++++ b/src/static/estilo.css
+@@ -358,6 +358,30 @@ button, input {
+   color: var(--apoio);
+ }
+ 
++/* Lista de produtos do organizador (produtos.html) */
++.tabela .num {
++  text-align: right;
++}
++
++.tabela td {
++  vertical-align: middle;
++}
++
++.tabela form {
++  margin: 0;
++}
++
++/* Botao pequeno para acao secundaria (remover produto) */
++.btn-discreto {
++  padding: 0.375rem 0.75rem;
++  font-size: 0.9375rem;
++  color: var(--erro);
++}
++
++.btn-discreto:hover {
++  border-color: var(--erro);
++}
++
+ /* Corte pontilhado, como uma comanda destacada */
+ .corte {
+   margin: 1rem 0;
+diff --git a/src/templates/admin_login.html b/src/templates/admin_login.html
+index 4490db0..db7fc98 100644
+--- a/src/templates/admin_login.html
++++ b/src/templates/admin_login.html
+@@ -8,7 +8,7 @@
+ </head>
+ <body>
+   <h1>Login do organizador</h1>
+-  <form action="/avisos" method="POST">
++  <form action="{{ destino or '/avisos' }}" method="POST">
+     <label for="campo-usuario">Usuario</label><br>
+     <input id="campo-usuario" name="usuario" type="text" required><br>
+     <label for="campo-senha">Senha</label><br>
+diff --git a/src/templates/produtos.html b/src/templates/produtos.html
+new file mode 100644
+index 0000000..356ab60
+--- /dev/null
++++ b/src/templates/produtos.html
+@@ -0,0 +1,72 @@
++<!DOCTYPE html>
++<html lang="pt-BR">
++<head>
++  <meta charset="UTF-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Produtos</title>
++  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
++  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
++</head>
++<body>
++  <!-- ///////gabriel/////// cadastro e listagem de produtos (tabela produtos), so para o organizador -->
++  <main class="container">
++    <header class="cabecalho">
++      <p class="local">Painel do organizador</p>
++      <h1>Produtos</h1>
++      <p>Os itens cadastrados aqui aparecem no cardápio dos clientes.</p>
++    </header>
++
++    {% if erro %}
++    <div class="aviso-erro" role="alert">
++      <p>{{ erro }}</p>
++    </div>
++    {% endif %}
++
++    <section class="card mb-4">
++      <h2 class="card-header">Novo produto</h2>
++      <form class="card-body" method="POST">
++        <label for="campo-nome">Nome</label>
++        <input id="campo-nome" class="form-control" name="nome" type="text" maxlength="60" required>
++
++        <label for="campo-preco">Preço (R$)</label>
++        <input id="campo-preco" class="form-control" name="preco" type="text" inputmode="decimal" placeholder="25,90" required>
++
++        <button type="submit" class="btn btn-primary btn-largo">Cadastrar produto</button>
++      </form>
++    </section>
++
++    <section class="card">
++      <h2 class="card-header">Cardápio atual</h2>
++      <div class="card-body">
++        {% if produtos %}
++        <table class="tabela">
++          <tr>
++            <th>Produto</th>
++            <th class="num">Preço</th>
++            <th></th>
++          </tr>
++          {% for produto in produtos %}
++          <tr>
++            <td>
++              {{ produto.nome }}
++              <span class="detalhe">Código {{ produto.codigo }}</span>
++            </td>
++            <td class="num valor">{{ produto.precoTexto }}</td>
++            <td>
++              <form method="POST">
++                <input type="hidden" name="acao" value="remover">
++                <input type="hidden" name="codigo" value="{{ produto.codigo }}">
++                <button type="submit" class="btn btn-discreto" aria-label="Remover {{ produto.nome }}">Remover</button>
++              </form>
++            </td>
++          </tr>
++          {% endfor %}
++        </table>
++        {% else %}
++        <p>Nenhum produto cadastrado ainda. Use o formulário acima para adicionar o primeiro item do cardápio.</p>
++        {% endif %}
++      </div>
++    </section>
++  </main>
++</body>
++</html>
+-- 
+2.43.0
+

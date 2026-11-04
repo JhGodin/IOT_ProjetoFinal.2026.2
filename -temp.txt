@@ -1,0 +1,10 @@
+{
+  "amountInCents": 1000,
+  "dueDate": "2027-10-29",
+  "customer": {
+    "name": "AAA",
+    "email": "email@email.com",
+    "cellphone": "4799376637",
+    "taxId": "24971563792"
+  }
+}
