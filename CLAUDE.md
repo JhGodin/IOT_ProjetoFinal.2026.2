@@ -22,7 +22,13 @@ This is NixOS without nix-ld, and PlatformIO downloads prebuilt toolchains that 
 filesystem — so `pio` in the dev shell is a `buildFHSEnv` wrapper (see `flake.nix`), not
 `platformio-core` on `$PATH` directly. Always invoke the toolchain through `pio`; calling a
 downloaded `packages/**` binary from outside that wrapper fails on the dynamic linker.
-Outside the shell, prefix with `nix develop --command`.
+Outside the shell, prefix with `nix develop "path:$(pwd)" --command`.
+
+`flake.nix`/`flake.lock`/`.envrc` are gitignored — they're this machine's Nix/direnv setup, not
+part of the team repo. Because `IoT/` is a real git repo, a bare `nix develop .` (or `.envrc`'s
+plain `use flake`) fails with "not tracked by Git": Nix's git-aware flake fetcher only sees
+committed/staged files. The `path:` prefix forces plain-filesystem semantics instead, which is why
+every `nix develop` invocation here uses it.
 
 **The root filesystem is a 4 GB tmpfs** (NixOS impermanence; only a few paths are bind-mounted from
 persistent disk, `~/Desktop` among them). The default `~/.platformio` therefore lives in RAM, where
@@ -36,7 +42,7 @@ So the core dir is `IoT/.platformio`, on persisted disk. Two consequences:
 
 - After editing `.envrc`, direnv blocks it until the user runs `direnv allow` — Claude must not run
   that for them. To build in the meantime, pass the variable explicitly:
-  `PLATFORMIO_CORE_DIR=/home/nebu/Desktop/IoT/.platformio nix develop --command pio run`
+  `PLATFORMIO_CORE_DIR=/home/nebu/Desktop/IoT/.platformio nix develop "path:$(pwd)" --command pio run`
 - If a build dies with `MissingPackageManifestError` or a zero-byte `package.json`, suspect
   `ENOSPC` rather than a bad download: check `df -h /`, then delete the truncated package under
   `.platformio/packages/` so pio refetches it.
