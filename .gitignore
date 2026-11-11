@@ -24,6 +24,12 @@ compile_commands.json
 .platformio/
 .direnv/
 
+# Pastas padrao do PlatformIO, vazias neste projeto (tudo fica em src/),
+# e material de estudo pessoal -- nao faz parte do firmware.
+/include/
+/lib/
+/docs/
+
 # Arquivos temporarios de verificacao
 .verificacao*
 .revisao*

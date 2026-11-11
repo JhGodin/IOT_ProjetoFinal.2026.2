@@ -3,7 +3,7 @@
 #include <MQTT.h>
 #include <WiFi.h>
 
-#include "aviso.h"
+#include "../aviso.h"
 
 // PLACEHOLDER: credenciais reais saem com a equipe do WiFi/servidor.
 static const char WIFI_SSID[]  = "ssid-do-evento";

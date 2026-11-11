@@ -12,14 +12,14 @@
 
 #include <Arduino.h>
 
-#include "aviso.h"
-#include "display.h"
+#include "../aviso.h"
+#include "../display.h"
 #include "../../equipe/equipe_mqtt.h"
 #include "../../equipe/equipe_rfid.h"
-#include "totem_comida.h"
-#include "totem_entrada.h"
-#include "totem_palco.h"
-#include "totem_saida.h"
+#include "../totem_comida.h"
+#include "../totem_entrada.h"
+#include "../totem_palco.h"
+#include "../totem_saida.h"
 #include "teste_telas.h"
 
 #define TOTEM_ENTRADA 1

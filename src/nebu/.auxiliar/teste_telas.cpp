@@ -1,8 +1,8 @@
 #include "teste_telas.h"
 
-#include "display.h"
-#include "equipe.h"
-#include "telas.h"
+#include "../display.h"
+#include "../../equipe.h"
+#include "../telas.h"
 
 static const uint32_t PASSO_MS = 6000;
 
