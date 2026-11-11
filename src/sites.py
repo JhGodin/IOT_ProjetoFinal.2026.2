@@ -9,9 +9,11 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from credenciais import credenciais
 # MQTT: constantes importadas diretamente do arquivo Python de credenciais.
 from credenciais.credenciais import MQTT_CLIENTE_ID, MQTT_USUARIO, MQTT_SENHA
-# ///////nebu/////// credenciais do organizador, para a pagina /avisos
+# credenciais do organizador, usadas tambem pelo /produtos (ver sites_nebu.py para /avisos)
 from credenciais.credenciais import ADMIN_USUARIO, ADMIN_SENHA
 from validate_docbr import CPF
+
+from sites_nebu import registrarNebu
 
 BD = URL.create(
     drivername=credenciais.BD_TIPO, host=credenciais.BD_HOST, port=credenciais.BD_PORTA,
@@ -75,6 +77,8 @@ threadMQTT.start()
 
 app = Flask(__name__)
 app.secret_key = token_urlsafe(32)
+
+registrarNebu(app, mqtt)
 
 
 def tratarDados():
@@ -149,28 +153,6 @@ def tratarDadosRfid():
     session["rfid"] = uid
     leituraRFID = None
     return {"estado": "sucesso", "mensagem": "RFID registrado com sucesso."}
-
-# ///////nebu/////// login do organizador e publicacao/cancelamento do aviso
-def tratarLoginAdmin():
-    if request.form.get("usuario") != ADMIN_USUARIO or request.form.get("senha") != ADMIN_SENHA:
-        return redirect("/avisos", code=303)
-
-    session["admin"] = True
-    return redirect("/avisos", code=303)
-def tratarAviso():
-    global avisoAtual
-
-    if request.form.get("acao") == "limpar":
-        mqtt.publish("totem/aviso", payload="", qos=1, retain=True)
-        avisoAtual = None
-        return redirect("/avisos", code=303)
-
-    titulo = request.form.get("titulo", "").strip()
-    corpo = request.form.get("corpo", "").strip()
-    mqtt.publish("totem/aviso", payload=f"{titulo}\n{corpo}", qos=1, retain=True)
-    avisoAtual = {"titulo": titulo, "corpo": corpo}
-    return redirect("/avisos", code=303)
-
 
 @app.route("/editar", methods=["GET"])
 def editar():
@@ -278,23 +260,6 @@ def cancelarCadastro():
     session.pop("rfid", None)
     leituraRFID = None
     return redirect("/", code=303)
-
-# ///////nebu/////// pagina do organizador para emitir avisos (exige login)
-@app.route("/avisos", methods=["GET", "POST"])
-def avisos():
-    if not session.get("admin"):
-        if request.method == "POST":
-            return tratarLoginAdmin()
-        return render_template("admin_login.html")
-
-    if request.method == "POST":
-        return tratarAviso()
-    return render_template("avisos.html", aviso=avisoAtual)
-@app.route("/avisos/sair", methods=["POST"])
-def sairAdmin():
-    session.pop("admin", None)
-    return redirect("/avisos", code=303)
-
 
 # ///////gabriel/////// semana 2: cardapio vindo do banco (/loja) e registro de consumo
 def formatarReais(centavos):
