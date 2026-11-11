@@ -19,14 +19,22 @@
       try {
         const resposta = await fetch("/rfid", {method: "POST"});
         const dados = await resposta.json();
+
+        console.debug(dados)
+
         if (dados.mensagem) {
           document.getElementById("estado-rfid").textContent = dados.mensagem;
         }
-        if (dados.estado === "sucesso" || resposta.status === 401) return;
+        if (dados.estado === "sucesso") 
+        {
+          window.location.href = "/";
+          return;
+        }
       } catch (erro) {
         document.getElementById("estado-rfid").textContent =
           "Falha na conexao. Tentando novamente...";
       }
+    
       setTimeout(aguardarRFID, 1000);
     }
     aguardarRFID();

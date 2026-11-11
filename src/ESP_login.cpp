@@ -3,8 +3,10 @@
 #include <MQTT.h>
 #include <SPI.h>
 #include <MFRC522.h>
-
+#include <WiFiClientSecure.h>
+    
 #include "credenciais/credenciais.h"
+#include "credenciais/certificados.h"
 
 
 MFRC522 rfid(46, 17);
@@ -13,7 +15,6 @@ MFRC522::MIFARE_Key chaveA = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
 
 WiFiClientSecure conexaoSegura;
 MQTTClient mqtt(1000);
-WebServer servidor(80);
 
 
 
@@ -72,13 +73,12 @@ String lerRFID()
 void setup()
 {
     Serial.begin(115200);
-    iniciarRFID();
     
     SPI.begin();
     rfid.PCD_Init();
     
     conexaoSegura.setCACert(certificado1);
-    mqtt.begin("mqtt.janks.dev.br", 1883, conexaoSegura);
+    mqtt.begin("mqtt.janks.dev.br", 8883, conexaoSegura);
     mqtt.setKeepAlive(10);
     
     reconectarWiFi();

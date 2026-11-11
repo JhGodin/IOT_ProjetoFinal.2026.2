@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editar usuario</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; padding: 0 1rem; max-width: 500px; }
+    label { display: block; margin-top: 1rem; }
+    input { box-sizing: border-box; width: 100%; padding: 0.5rem; }
+    .botao {
+      display: inline-block; margin-top: 1rem; padding: 0.5rem 1rem;
+      border: 1px solid #767676; border-radius: 2px;
+      background: #efefef; color: #000; font: inherit;
+      text-decoration: none; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Editar usuario</h1>
+  <form method="POST" action="{{ url_for('editarUsuario', cpf=usuario.cpf) }}">
+    <label for="nome">Nome</label>
+    <input id="nome" name="nome" value="{{ usuario.nome }}" required>
+
+    <label for="cpf">CPF</label>
+    <input id="cpf" name="cpf" value="{{ usuario.cpf }}" inputmode="numeric" pattern="[0-9]{11}" required>
+
+    <label for="telefone">Telefone</label>
+    <input id="telefone" name="telefone" type="tel" value="{{ usuario.telefone or '' }}">
+
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" value="{{ usuario.email or '' }}">
+
+    <button type="submit" class="botao">Salvar</button>
+    <a href="/editar" class="botao">Cancelar</a>
+  </form>
+</body>
+</html>

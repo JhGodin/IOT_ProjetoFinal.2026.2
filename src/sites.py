@@ -11,8 +11,6 @@ from credenciais import credenciais
 from credenciais.credenciais import MQTT_CLIENTE_ID, MQTT_USUARIO, MQTT_SENHA
 from validate_docbr import CPF
 
-#Verificar o nome da tabela [_totem_]
-
 BD = URL.create(
     drivername=credenciais.BD_TIPO, host=credenciais.BD_HOST, port=credenciais.BD_PORTA,
     database=credenciais.BD_NOME, username=credenciais.BD_USUARIO, password=credenciais.BD_SENHA,
@@ -21,8 +19,9 @@ BD = URL.create(
 engine = create_engine(BD) if BD else None
 if engine is None:
     raise RuntimeError("ERRO: Banco de dados não configurado.")
-with engine.connect():
-    pass
+with engine.begin() as conexao:
+    conexao.execute(text('ALTER TABLE "clientes" ADD COLUMN IF NOT EXISTS telefone TEXT'))
+    conexao.execute(text('ALTER TABLE "clientes" ADD COLUMN IF NOT EXISTS email TEXT'))
 
 
 
@@ -33,8 +32,10 @@ mqtt = mqtt_python.Client(
 )
 mqtt.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
 
-# RFID: ultima leitura recebida pelo ESP.
+
 leituraRFID = None
+cpfAtual = None
+
 
 def ConectarMQTT(cliente, dados_usuario, flags, codigo, propriedades):
     if codigo.is_failure:
@@ -44,13 +45,20 @@ def ConectarMQTT(cliente, dados_usuario, flags, codigo, propriedades):
     resultado, _ = cliente.subscribe("totem/rfid", qos=0)
     if resultado != mqtt_python.MQTT_ERR_SUCCESS:
         print(f"Falha ao assinar totem/rfid: {resultado}", flush=True)
-def recebeuMensagem(cliente, dados_usuario, mensagem):
-    global leituraRFID
-    if mensagem.topic != "totem/rfid" or mensagem.retain:
-        return
-    leituraRFID = mensagem.payload.decode("utf-8", errors="replace").strip() or None
 def reconectarMQTT():
     mqtt.loop_forever(retry_first_connection=True)
+def recebeuMensagem(cliente, dados_usuario, mensagem):
+    global leituraRFID
+    global cpfAtual
+
+    print(mensagem)
+    if mensagem.topic != "totem/rfid" or mensagem.retain:
+        return
+
+    if cpfAtual != None:
+
+        leituraRFID = mensagem.payload.decode("utf-8", errors="replace").strip() or None
+        print(leituraRFID)
 
 mqtt.on_connect = ConectarMQTT
 mqtt.on_message = recebeuMensagem
@@ -61,17 +69,23 @@ threadMQTT = Thread(target=reconectarMQTT, daemon=True)
 threadMQTT.start()
 
 
-
 app = Flask(__name__)
 app.secret_key = token_urlsafe(32)
 
+
 def tratarDados():
+    global cpfAtual
+
+    telefoneUsuario = request.form.get("telefone", "").strip()
+    emailUsuario = request.form.get("email", "").strip()
+    if not telefoneUsuario or not emailUsuario:
+        return "Informe o telefone e o email.", 400
 
     cpfUsuario = request.form.get("cpf", "")
     if not CPF().validate(cpfUsuario):
         return render_template("cpf_invalido.html"), 400
 
-    consulta = text('SELECT cpf FROM "_totem_ProjetoFinal" WHERE cpf = :cpf')
+    consulta = text('SELECT cpf FROM "clientes" WHERE cpf = :cpf')
 
     try:
         with engine.begin() as conexao:
@@ -80,11 +94,7 @@ def tratarDados():
 
             nomeUsuario = request.form.get("nome", "").strip()
             link = "http://192.168.4.1/loja?id=" + token_urlsafe(32) + cpfUsuario
-            comando = text(
-                'INSERT INTO "_totem_ProjetoFinal" (nome, cpf, link) '
-                "VALUES (:nome, :cpf, :link)"
-            )
-            conexao.execute(comando, {"nome": nomeUsuario, "cpf": cpfUsuario, "link": link})
+           
     
     except IntegrityError:
         return "Nao foi possivel gravar o cadastro no banco de dados.", 500
@@ -92,37 +102,47 @@ def tratarDados():
         return "Nao foi possivel gravar o cadastro no banco de dados.", 500
 
     session["cpf"] = cpfUsuario
-    session.pop("rfid", None)
+    session["link"] = link
+    session["nome"] = nomeUsuario
+    session["telefone"] = telefoneUsuario
+    session["email"] = emailUsuario
+    
+    cpfAtual = cpfUsuario
+
     return redirect("/rfid", code=303)
 def tratarDadosRfid():
     global leituraRFID
 
-    if "cpf" not in session or "link" not in session:
+    if "cpf" not in session:
+        print({"estado": "erro", "mensagem": "Faca o login novamente."})
         return {"estado": "erro", "mensagem": "Faca o login novamente."}, 401
     
     if session.get("rfid"):
+        print ({"estado": "sucesso", "mensagem": "RFID registrado com sucesso."})
         return {"estado": "sucesso", "mensagem": "RFID registrado com sucesso."}
-    
     if leituraRFID is None:
+        print({"estado": "aguardando"})
         return {"estado": "aguardando"}
 
     uid = leituraRFID
     try:
         with engine.begin() as conexao:
-            consulta = text('SELECT cpf FROM "_totem_ProjetoFinal" WHERE rfid = :rfid')
+            consulta = text('SELECT cpf FROM "clientes" WHERE rfid = :rfid')
             
-            if conexao.execute(consulta, {"rfid": uid}) is not None:
+            if conexao.execute(consulta, {"rfid": uid}).first() is not None:
                 leituraRFID = None
+                print("409-2")
                 return {"estado": "erro", "mensagem": "RFID ja cadastrado. Aproxime outro cartao."}, 409
+            
 
-            resultado = conexao.execute(
-                text('UPDATE "_totem_ProjetoFinal" SET rfid = :rfid '
-                     'WHERE cpf = :cpf'),
-                {"rfid": uid, "cpf": session["cpf"]},
-            )
+            comando = text('INSERT INTO "clientes" (nome, cpf, telefone, email, link, rfid) '
+            "VALUES (:nome, :cpf, :telefone, :email, :link, :rfid)")
+            resultado = conexao.execute(comando, {"nome": session["nome"], "cpf": session["cpf"], "telefone": session.get("telefone", ""), "email": session.get("email", ""), "link": session["link"], "rfid": uid})
+
             
     except IntegrityError:
         leituraRFID = None
+        print("409-3")
         return {"estado": "erro", "mensagem": "Nao foi possivel registrar este RFID. Tente outro cartao."}, 409
     except SQLAlchemyError:
         return {"estado": "erro", "mensagem": "Erro ao gravar RFID no banco. Tentando novamente..."}, 500
@@ -130,6 +150,79 @@ def tratarDadosRfid():
     session["rfid"] = uid
     leituraRFID = None
     return {"estado": "sucesso", "mensagem": "RFID registrado com sucesso."}
+
+
+@app.route("/editar", methods=["GET"])
+def editar():
+    usuariosPorPagina = 10
+    pagina = max(1, request.args.get("pagina", default=1, type=int))
+
+    try:
+        with engine.connect() as conexao:
+            totalUsuarios = conexao.execute(text('SELECT COUNT(*) FROM "clientes"')).scalar_one()
+            totalPaginas = max(1, (totalUsuarios + usuariosPorPagina - 1) // usuariosPorPagina)
+            pagina = min(pagina, totalPaginas)
+            usuarios = conexao.execute(
+                text('SELECT id, nome, cpf FROM "clientes" ORDER BY nome, cpf LIMIT :limite OFFSET :inicio'),
+                {"limite": usuariosPorPagina, "inicio": (pagina - 1) * usuariosPorPagina},
+            ).mappings().all()
+    except SQLAlchemyError:
+        return "Nao foi possivel listar os usuarios. Tente novamente.", 500
+
+    return render_template(
+        "editar.html", usuarios=usuarios, pagina=pagina, totalPaginas=totalPaginas,
+    )
+@app.route("/editar/<cpf>", methods=["GET", "POST"])
+def editarUsuario(cpf):
+    try:
+        with engine.begin() as conexao:
+            usuario = conexao.execute(
+                text('SELECT nome, cpf, telefone, email FROM "clientes" WHERE cpf = :cpf'),
+                {"cpf": cpf},
+            ).mappings().first()
+
+            if usuario is None:
+                return "Usuario nao encontrado.", 404
+
+            if request.method == "POST":
+                dados = {campo: request.form.get(campo, "").strip()
+                         for campo in ("nome", "cpf", "telefone", "email")}
+                
+                if not dados["nome"]:
+                    return "Informe o nome.", 400
+                if not dados["telefone"]:
+                                    return "Informe o telefone.", 400
+                if not dados["email"]:
+                                    return "Informe o email.", 400
+                if not CPF().validate(dados["cpf"]):
+                    return render_template("cpf_invalido.html"), 400
+
+                dados["cpf_original"] = cpf
+                conexao.execute(
+                    text('UPDATE "clientes" SET nome = :nome, cpf = :cpf, '
+                         'telefone = :telefone, email = :email WHERE cpf = :cpf_original'),
+                    dados,
+                )
+    except IntegrityError:
+        return "Nao foi possivel salvar. Verifique se o CPF ja esta cadastrado.", 409
+    except SQLAlchemyError:
+        return "Nao foi possivel salvar o usuario. Tente novamente.", 500
+
+    if request.method == "POST":
+        return redirect("/editar", code=303)
+    return render_template("editar_usuario.html", usuario=usuario)
+@app.route("/remover/<cpf>", methods=["POST"])
+def remover(cpf):
+    try:
+        with engine.begin() as conexao:
+            conexao.execute(
+                text('DELETE FROM "clientes" WHERE cpf = :cpf'),
+                {"cpf": cpf},
+            )
+    except SQLAlchemyError:
+        return "Nao foi possivel remover o usuario. Tente novamente.", 500
+
+    return redirect("/editar", code=303)
 
 
 @app.route("/",  methods=["GET"])
@@ -155,7 +248,7 @@ def cancelarCadastro():
     try:
         with engine.begin() as conexao:
             conexao.execute(
-                text('DELETE FROM "_totem_ProjetoFinal" WHERE cpf = :cpf'),
+                text('DELETE FROM "clientes" WHERE cpf = :cpf'),
                 {"cpf": session["cpf"]},
             )
     except SQLAlchemyError:
