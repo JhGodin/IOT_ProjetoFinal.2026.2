@@ -23,14 +23,14 @@ static const int16_t COL_DIR = 108;     // onde começa a coluna de texto
 void telaEntradaIngresso(const String &linkCadastro) {
   telaComeca();
 
-  textoCentrado(FONTE_MEDIA, 24, "Escaneie seu ingresso!");
+  textoCentrado(FONTE_MEDIA, 24, "Escaneie para se cadastrar!");
 
   qrAjustado(linkCadastro, QR_X, QR_Y, QR_LADO);
 
   textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 70,
-                     "Ainda não tem ingresso?");
+                     "Depois de preencher,");
   textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 90,
-                     "Cadastre-se na hora!");
+                     "passe sua pulseira aqui");
 
   // Seta apontando do texto para o QR.
   texto(FONTE_SETA, QR_X + QR_LADO + 4, 84, "A");
@@ -38,9 +38,10 @@ void telaEntradaIngresso(const String &linkCadastro) {
   telaTermina(false);
 }
 
-void telaEntradaPegaRFID() {
+void telaEntradaAguardando() {
   telaComeca();
-  textoCentrado(FONTE_GRANDE, 74, "Pegue seu RFID");
+  textoCentrado(FONTE_GRANDE, 58, "Aguarde");
+  textoCentrado(FONTE_MEDIA, 92, "confirmação no celular");
   telaTermina(false);
 }
 

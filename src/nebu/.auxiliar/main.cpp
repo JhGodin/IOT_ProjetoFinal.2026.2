@@ -14,6 +14,8 @@
 
 #include "aviso.h"
 #include "display.h"
+#include "../../equipe/equipe_mqtt.h"
+#include "../../equipe/equipe_rfid.h"
 #include "totem_comida.h"
 #include "totem_entrada.h"
 #include "totem_palco.h"
@@ -33,6 +35,8 @@
 void setup() {
   Serial.begin(115200);
   displayBegin();
+  rfidBegin();
+  equipeMqttBegin();
 
 #if TOTEM_PAPEL == TOTEM_ENTRADA
   totemEntradaBegin();
@@ -50,6 +54,8 @@ void setup() {
 }
 
 void loop() {
+  equipeMqttLoop();
+
 #if TOTEM_PAPEL == TOTEM_ENTRADA
   totemEntradaLoop();
 #elif TOTEM_PAPEL == TOTEM_SAIDA

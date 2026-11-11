@@ -31,8 +31,8 @@ static void desenha(uint8_t i) {
       telaEntradaIngresso("https://exemplo.com/cadastro");
       break;
     case 1:
-      Serial.println("[1] telaEntradaPegaRFID");
-      telaEntradaPegaRFID();
+      Serial.println("[1] telaEntradaAguardando");
+      telaEntradaAguardando();
       break;
     case 2:
       Serial.println("[2] telaSaidaPassaRFID");

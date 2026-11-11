@@ -16,7 +16,7 @@
 
 // --- Totem de entrada ---
 void telaEntradaIngresso(const String &linkCadastro);
-void telaEntradaPegaRFID();
+void telaEntradaAguardando();
 
 // --- Totem de saída ---
 void telaSaidaPassaRFID();

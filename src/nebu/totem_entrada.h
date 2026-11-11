@@ -3,15 +3,17 @@
 #include <Arduino.h>
 
 // ---------------------------------------------------------------------------
-// Totem de ENTRADA: lê o QR do ingresso, grava a pulseira RFID da pessoa.
+// Totem de ENTRADA: lê a pulseira RFID de quem chega e avisa o servidor.
+// O cadastro (nome+CPF) é feito pela própria pessoa no site, no celular —
+// o totem só anuncia "essa pulseira passou aqui agora" (ver equipe.h).
 //
-//   AguardandoIngresso --(QR válido)--> EntregandoRFID
-//   EntregandoRFID  --(botão | 30 s)--> AguardandoIngresso
+//   AguardandoChegada --(UID publicado)--> AguardandoConfirmacao
+//   AguardandoConfirmacao --(botão | 30 s)--> AguardandoChegada
 // ---------------------------------------------------------------------------
 
 enum class EntradaEstado : uint8_t {
-  AguardandoIngresso,   // QR de cadastro na tela, leitor ligado
-  EntregandoRFID,       // "Pegue seu RFID", leitor desligado
+  AguardandoChegada,       // QR de cadastro na tela, leitor RFID ligado
+  AguardandoConfirmacao,   // "aguarde confirmação no celular"
 };
 
 void totemEntradaBegin();

@@ -57,6 +57,8 @@ void totemSaidaLoop() {
 
       userAtual = user;
       pixAtual  = pixCobranca(userAtual);
+      if (pixAtual.length() == 0) break;   // servidor não respondeu: tenta de novo no próximo loop
+
       Serial.println("Saída: " + userAtual.nome + " deve " + String(userAtual.divida, 2));
       entra(SaidaEstado::MostrandoPix);
       break;
