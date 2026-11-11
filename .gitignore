@@ -18,6 +18,11 @@ __pycache__/
 *.bin
 *.map
 .pio/
+compile_commands.json
+
+# Toolchain/cache do PlatformIO e do Nix (so na maquina local)
+.platformio/
+.direnv/
 
 # Arquivos temporarios de verificacao
 .verificacao*
