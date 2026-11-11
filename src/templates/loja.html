@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <title>Cardápio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+
+<body>
+  <!-- ///////gabriel/////// cardapio vindo da tabela _totem_produtos -->
+  <form class="container" method="POST">
+    <header class="cabecalho">
+      <p class="local">Totem de comida</p>
+      <h1>Cardápio</h1>
+      <p>Olá, {{ nome }}. Escolha as quantidades e confirme. O valor entra na sua conta e é pago na saída do festival.</p>
+    </header>
+
+    <ul class="cardapio">
+      {% for produto in produtos %}
+      <li class="item-cardapio">
+        <label for="campo-item{{ produto.codigo }}">
+          {{ produto.nome }}
+          <span class="preco">{{ produto.precoTexto }}</span>
+        </label>
+        <div class="quantidade">
+          <button type="button" aria-label="Tirar um {{ produto.nome }}" onclick="alterarQuantidade('campo-item{{ produto.codigo }}', -1)">−</button>
+          <input id="campo-item{{ produto.codigo }}" name="item{{ produto.codigo }}" type="number" min="0" value="0" data-preco="{{ produto.preco }}" oninput="atualizarTotal()">
+          <button type="button" aria-label="Adicionar um {{ produto.nome }}" onclick="alterarQuantidade('campo-item{{ produto.codigo }}', 1)">+</button>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="barra-pedido">
+      <p class="total">Total do pedido <strong id="total">R$ 0,00</strong></p>
+      <button type="submit" class="btn btn-primary">Confirmar pedido</button>
+    </div>
+  </form>
+
+  <script>
+    // A mesma funcao atende todos os produtos. O id indica qual campo alterar.
+    //[Feito com o suporte de IA]
+    function alterarQuantidade(id, alteracao) {
+      const campo = document.getElementById(id);
+
+      if (alteracao === 1) {
+        campo.stepUp(); // Soma uma unidade
+      } else if (campo.valueAsNumber > 0) {
+        campo.stepDown(); // Subtrai uma unidade
+      }
+
+      atualizarTotal();
+    }
+
+    // Soma quantidade x preco (em centavos) de todos os itens e marca os escolhidos.
+    function atualizarTotal() {
+      let total = 0;
+      for (const campo of document.querySelectorAll('.quantidade input')) {
+        const quantidade = campo.valueAsNumber || 0;
+        total += quantidade * Number(campo.dataset.preco);
+        campo.closest('.item-cardapio').classList.toggle('escolhido', quantidade > 0);
+      }
+      document.getElementById('total').textContent = 'R$ ' + (total / 100).toFixed(2).replace('.', ',');
+    }
+  </script>
+</body>
+
+</html>

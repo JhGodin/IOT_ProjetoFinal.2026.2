@@ -1,0 +1,34 @@
+<!-- ///////gabriel/////// erro simples do pedido (link invalido, quantidade invalida ou pedido vazio) -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pedido não registrado</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+  <main class="container">
+    <header class="cabecalho">
+      <p class="local">Totem de comida</p>
+      <h1>Pedido não registrado</h1>
+    </header>
+
+    <div class="aviso-erro" role="alert">
+      <p class="destaque">{{ mensagem }}</p>
+      {% if voltar %}
+      <p>Nada foi cobrado. Volte ao cardápio e confira as quantidades.</p>
+      {% else %}
+      <p>Escaneie de novo o QR Code do totem de comida ou procure o totem de cadastro para gerar um novo link.</p>
+      {% endif %}
+    </div>
+
+    {% if voltar %}
+    <form action="{{ voltar }}" method="GET">
+      <button type="submit" class="btn btn-primary btn-largo">Voltar ao cardápio</button>
+    </form>
+    {% endif %}
+  </main>
+</body>
+</html>

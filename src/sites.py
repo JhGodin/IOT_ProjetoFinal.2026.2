@@ -9,6 +9,8 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from credenciais import credenciais
 # MQTT: constantes importadas diretamente do arquivo Python de credenciais.
 from credenciais.credenciais import MQTT_CLIENTE_ID, MQTT_USUARIO, MQTT_SENHA
+# ///////nebu/////// credenciais do organizador, para a pagina /avisos
+from credenciais.credenciais import ADMIN_USUARIO, ADMIN_SENHA
 from validate_docbr import CPF
 
 BD = URL.create(
@@ -35,6 +37,8 @@ mqtt.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
 
 leituraRFID = None
 cpfAtual = None
+
+
 
 
 def ConectarMQTT(cliente, dados_usuario, flags, codigo, propriedades):
@@ -94,7 +98,7 @@ def tratarDados():
 
             nomeUsuario = request.form.get("nome", "").strip()
             link = "http://192.168.4.1/loja?id=" + token_urlsafe(32) + cpfUsuario
-           
+        
     
     except IntegrityError:
         return "Nao foi possivel gravar o cadastro no banco de dados.", 500
@@ -114,14 +118,11 @@ def tratarDadosRfid():
     global leituraRFID
 
     if "cpf" not in session:
-        print({"estado": "erro", "mensagem": "Faca o login novamente."})
         return {"estado": "erro", "mensagem": "Faca o login novamente."}, 401
     
     if session.get("rfid"):
-        print ({"estado": "sucesso", "mensagem": "RFID registrado com sucesso."})
         return {"estado": "sucesso", "mensagem": "RFID registrado com sucesso."}
     if leituraRFID is None:
-        print({"estado": "aguardando"})
         return {"estado": "aguardando"}
 
     uid = leituraRFID
@@ -131,7 +132,6 @@ def tratarDadosRfid():
             
             if conexao.execute(consulta, {"rfid": uid}).first() is not None:
                 leituraRFID = None
-                print("409-2")
                 return {"estado": "erro", "mensagem": "RFID ja cadastrado. Aproxime outro cartao."}, 409
             
 
@@ -139,7 +139,6 @@ def tratarDadosRfid():
             "VALUES (:nome, :cpf, :telefone, :email, :link, :rfid)")
             resultado = conexao.execute(comando, {"nome": session["nome"], "cpf": session["cpf"], "telefone": session.get("telefone", ""), "email": session.get("email", ""), "link": session["link"], "rfid": uid})
 
-            
     except IntegrityError:
         leituraRFID = None
         print("409-3")
@@ -150,6 +149,27 @@ def tratarDadosRfid():
     session["rfid"] = uid
     leituraRFID = None
     return {"estado": "sucesso", "mensagem": "RFID registrado com sucesso."}
+
+# ///////nebu/////// login do organizador e publicacao/cancelamento do aviso
+def tratarLoginAdmin():
+    if request.form.get("usuario") != ADMIN_USUARIO or request.form.get("senha") != ADMIN_SENHA:
+        return redirect("/avisos", code=303)
+
+    session["admin"] = True
+    return redirect("/avisos", code=303)
+def tratarAviso():
+    global avisoAtual
+
+    if request.form.get("acao") == "limpar":
+        mqtt.publish("totem/aviso", payload="", qos=1, retain=True)
+        avisoAtual = None
+        return redirect("/avisos", code=303)
+
+    titulo = request.form.get("titulo", "").strip()
+    corpo = request.form.get("corpo", "").strip()
+    mqtt.publish("totem/aviso", payload=f"{titulo}\n{corpo}", qos=1, retain=True)
+    avisoAtual = {"titulo": titulo, "corpo": corpo}
+    return redirect("/avisos", code=303)
 
 
 @app.route("/editar", methods=["GET"])
@@ -259,8 +279,223 @@ def cancelarCadastro():
     leituraRFID = None
     return redirect("/", code=303)
 
+# ///////nebu/////// pagina do organizador para emitir avisos (exige login)
+@app.route("/avisos", methods=["GET", "POST"])
+def avisos():
+    if not session.get("admin"):
+        if request.method == "POST":
+            return tratarLoginAdmin()
+        return render_template("admin_login.html")
+
+    if request.method == "POST":
+        return tratarAviso()
+    return render_template("avisos.html", aviso=avisoAtual)
+@app.route("/avisos/sair", methods=["POST"])
+def sairAdmin():
+    session.pop("admin", None)
+    return redirect("/avisos", code=303)
+
+
+# ///////gabriel/////// semana 2: cardapio vindo do banco (/loja) e registro de consumo
+def formatarReais(centavos):
+    # 2500 centavos -> "R$ 25,00"
+    return f"R$ {centavos / 100:.2f}".replace(".", ",")
+def buscarProdutos():
+    with engine.connect() as conexao:
+        linhas = conexao.execute(
+            text('SELECT id AS codigo, nome, preco FROM "produtos" ORDER BY id')
+        ).all()
+
+    produtos = []
+    for linha in linhas:
+        produtos.append({
+            "codigo": linha.codigo,
+            "nome": linha.nome,
+            "preco": linha.preco,
+            "precoTexto": formatarReais(linha.preco),
+        })
+    return produtos
+def buscarUsuarioDoLink(idLink):
+    # O id do link e o token + CPF (11 digitos), entao o CPF sao os 11 ultimos caracteres.
+    cpf = idLink[-11:]
+    with engine.connect() as conexao:
+        usuario = conexao.execute(
+            text('SELECT nome, cpf, link FROM "clientes" WHERE cpf = :cpf'),
+            {"cpf": cpf},
+        ).first()
+
+    if usuario is None or not usuario.link.endswith("id=" + idLink):
+        return None
+    return usuario
+def calcularDivida(cpf):
+    with engine.connect() as conexao:
+        linha = conexao.execute(
+            text('SELECT SUM(quantidade * preco) FROM "consumos" WHERE cpf = :cpf'),
+            {"cpf": cpf},
+        ).first()
+
+    if linha[0] is None:
+        return 0
+    return linha[0]
+def tratarPedido():
+    idLink = request.args.get("id", "")
+    voltar = "/loja?id=" + idLink
+
+    try:
+        usuario = buscarUsuarioDoLink(idLink)
+        if usuario is None:
+            return render_template("pedido_invalido.html", mensagem="Link de cardápio inválido.", voltar=None), 404
+
+        produtos = buscarProdutos()
+        itensPedido = []
+        totalPedido = 0
+        for produto in produtos:
+            quantidade = request.form.get("item" + str(produto["codigo"]), "0").strip()
+            if not quantidade.isdigit():
+                return render_template("pedido_invalido.html", mensagem="Quantidade inválida.", voltar=voltar), 400
+
+            quantidade = int(quantidade)
+            if quantidade > 0:
+                subtotal = quantidade * produto["preco"]
+                itensPedido.append({
+                    "codigo": produto["codigo"],
+                    "nome": produto["nome"],
+                    "quantidade": quantidade,
+                    "preco": produto["preco"],
+                    "precoTexto": produto["precoTexto"],
+                    "subtotalTexto": formatarReais(subtotal),
+                })
+                totalPedido += subtotal
+
+        if len(itensPedido) == 0:
+            return render_template("pedido_invalido.html", mensagem="Nenhum item foi escolhido.", voltar=voltar), 400
+
+        with engine.begin() as conexao:
+            for item in itensPedido:
+                conexao.execute(
+                    text('INSERT INTO "consumos" (cpf, codigo_produto, quantidade, preco) '
+                         "VALUES (:cpf, :codigo, :quantidade, :preco)"),
+                    {"cpf": usuario.cpf, "codigo": item["codigo"],
+                     "quantidade": item["quantidade"], "preco": item["preco"]},
+                )
+
+        divida = calcularDivida(usuario.cpf)
+
+    except SQLAlchemyError as erro:
+        print(erro, flush=True)  # o motivo real do erro aparece no terminal
+        return "Nao foi possivel registrar o pedido no banco de dados.", 500
+
+    return render_template(
+        "pedido_confirmado.html",
+        nome=usuario.nome,
+        itens=itensPedido,
+        total=formatarReais(totalPedido),
+        divida=formatarReais(divida),
+        voltar=voltar,
+    )
+
+
+@app.route("/loja", methods=["GET"])
+def mostrarCardapio():
+    idLink = request.args.get("id", "")
+    try:
+        usuario = buscarUsuarioDoLink(idLink)
+        if usuario is None:
+            return render_template("pedido_invalido.html", mensagem="Link de cardápio inválido.", voltar=None), 404
+        produtos = buscarProdutos()
+    except SQLAlchemyError as erro:
+        print(erro, flush=True)  # o motivo real do erro aparece no terminal
+        return "Nao foi possivel acessar o banco de dados.", 500
+
+    return render_template("loja.html", nome=usuario.nome, produtos=produtos)
+@app.route("/loja", methods=["POST"])
+def receberPedido():
+    return tratarPedido()
+
+
+# ///////gabriel/////// semana 1: cadastro e listagem de produtos pelo site (so o organizador)
+# Assim o cardapio nao depende de INSERT feito na mao no Beekeeper.
+def mostrarProdutos(erro=None, status=200):
+    produtos = []
+    try:
+        produtos = buscarProdutos()
+    except SQLAlchemyError as erroBanco:
+        print(erroBanco, flush=True)
+        erro = "Não foi possível ler os produtos no banco de dados."
+        status = 500
+
+    return render_template("produtos.html", produtos=produtos, erro=erro), status
+def tratarProduto():
+    if request.form.get("acao") == "remover":
+        codigo = request.form.get("codigo", "")
+        if codigo.isdigit():
+            try:
+                with engine.begin() as conexao:
+                    conexao.execute(
+                        text('DELETE FROM "produtos" WHERE id = :codigo'),
+                        {"codigo": int(codigo)},
+                    )
+            except SQLAlchemyError as erro:
+                print(erro, flush=True)
+                return mostrarProdutos("Não foi possível remover o produto.", 500)
+        return redirect("/produtos", code=303)
+
+    nome = request.form.get("nome", "").strip()[:60]
+    try:
+        # O preco e digitado em reais ("25,90") e guardado em centavos (2590).
+        preco = round(float(request.form.get("preco", "").replace(",", ".")) * 100)
+    except (ValueError, OverflowError):
+        preco = 0
+
+    if nome == "" or preco <= 0 or preco > 1000000:
+        return mostrarProdutos("Informe o nome e um preço entre R$ 0,01 e R$ 10.000,00.", 400)
+
+    try:
+        with engine.begin() as conexao:
+            # O codigo do novo produto e o maior codigo atual + 1.
+            conexao.execute(
+                text('INSERT INTO "produtos" (id, nome, preco) '
+                     'VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM "produtos"), :nome, :preco)'),
+                {"nome": nome, "preco": preco},
+            )
+    except SQLAlchemyError as erro:
+        print(erro, flush=True)
+        return mostrarProdutos("Não foi possível gravar o produto no banco de dados.", 500)
+
+    return redirect("/produtos", code=303)
+@app.route("/produtos", methods=["GET", "POST"])
+def paginaProdutos():
+    # Usa o mesmo login do organizador da pagina /avisos.
+    if not session.get("admin"):
+        if request.method == "POST":
+            if request.form.get("usuario") == ADMIN_USUARIO and request.form.get("senha") == ADMIN_SENHA:
+                session["admin"] = True
+            return redirect("/produtos", code=303)
+        return render_template("admin_login.html", destino="/produtos")
+
+    if request.method == "POST":
+        return tratarProduto()
+    return mostrarProdutos()
+
+
+def verificarTabelas():
+    # Ao ligar o servidor, mostra no terminal se alguma tabela ou coluna esta diferente do esperado.
+    testes = {
+        "clientes": 'SELECT nome, cpf, link, rfid FROM "clientes" LIMIT 1',
+        "produtos": 'SELECT id, nome, preco FROM "produtos" LIMIT 1',
+        "consumos": 'SELECT cpf, codigo_produto, quantidade, preco FROM "consumos" LIMIT 1',
+    }
+    for tabela, consulta in testes.items():
+        try:
+            with engine.connect() as conexao:
+                conexao.execute(text(consulta)).all()
+            print(f"Tabela {tabela}: ok", flush=True)
+        except SQLAlchemyError as erro:
+            print(f"Tabela {tabela}: ERRO -> {getattr(erro, 'orig', erro)}", flush=True)
+
 
 if __name__ == "__main__":
+    verificarTabelas()
     try:
         app.run(debug=True, port=5000, use_reloader=False)
     finally:

@@ -1,0 +1,35 @@
+<!-- ///////nebu/////// pagina do organizador para emitir/cancelar o aviso dos totens -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avisos</title>
+</head>
+<body>
+  <h1>Aviso para os totens</h1>
+
+  {% if aviso %}
+  <p>Aviso atual: <strong>{{ aviso.titulo }}</strong> - {{ aviso.corpo }}</p>
+  <form action="/avisos" method="POST">
+    <input type="hidden" name="acao" value="limpar">
+    <button type="submit">Cancelar aviso</button>
+  </form>
+  <hr>
+  {% else %}
+  <p>Nenhum aviso ativo no momento.</p>
+  {% endif %}
+
+  <form action="/avisos" method="POST">
+    <label for="campo-titulo">Titulo</label><br>
+    <input id="campo-titulo" name="titulo" type="text" required><br>
+    <label for="campo-corpo">Corpo</label><br>
+    <textarea id="campo-corpo" name="corpo" required></textarea><br>
+    <button type="submit">Publicar aviso</button>
+  </form>
+
+  <form action="/avisos/sair" method="POST">
+    <button type="submit">Sair</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!-- ///////gabriel/////// resumo do pedido gravado no banco, no formato de comanda -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pedido confirmado</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+  <main class="container">
+    <header class="cabecalho">
+      <p class="local">Totem de comida</p>
+      <h1>Pedido confirmado</h1>
+      <p>{{ nome }}, é só retirar no balcão.</p>
+    </header>
+
+    <section class="recibo">
+      <h2 class="recibo-titulo">Comanda</h2>
+      <table class="tabela">
+        <tr>
+          <th>Item</th>
+          <th>Valor</th>
+        </tr>
+        {% for item in itens %}
+        <tr>
+          <td>
+            {{ item.nome }}
+            <span class="detalhe valor">{{ item.quantidade }} × {{ item.precoTexto }}</span>
+          </td>
+          <td class="valor">{{ item.subtotalTexto }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <hr class="corte">
+
+      <p class="linha-total principal"><span>Total</span> <span class="valor">{{ total }}</span></p>
+      <p class="linha-total conta"><span>Sua conta no festival</span> <span class="valor">{{ divida }}</span></p>
+    </section>
+
+    <p>O valor da conta é pago de uma vez, por Pix, no totem de saída.</p>
+
+    <form action="{{ voltar }}" method="GET">
+      <button type="submit" class="btn btn-primary btn-largo">Fazer outro pedido</button>
+    </form>
+  </main>
+</body>
+</html>
