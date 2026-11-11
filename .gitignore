@@ -20,6 +20,11 @@ __pycache__/
 .pio/
 compile_commands.json
 
+# Setup Nix/direnv de uma maquina especifica (NixOS) -- nao e do projeto.
+/flake.nix
+/flake.lock
+/.envrc
+
 # Toolchain/cache do PlatformIO e do Nix (so na maquina local)
 .platformio/
 .direnv/
