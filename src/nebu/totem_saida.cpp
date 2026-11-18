@@ -1,14 +1,18 @@
 #include "totem_saida.h"
 
 #include <GFButton.h>
+#include <stdlib.h>
 
 #include "aviso.h"
 #include "equipe.h"
+#include "equipe/equipe_mqtt.h"
 #include "../credenciais/pinos.h"
 #include "telas.h"
 
 static const uint32_t TIMEOUT_PAGAMENTO_MS = 60000;
 static const uint32_t TIMEOUT_DESPEDIDA_MS = 15000;
+static const uint32_t TIMEOUT_QR_CODE_MS = 5000;
+static const int ID_TOTEM = 1;
 
 static SaidaEstado estado      = SaidaEstado::AguardandoRFID;
 static uint32_t    estadoDesde = 0;
@@ -56,7 +60,12 @@ void totemSaidaLoop() {
       if (!lerUsuario(user)) break;        // nenhum chip agora: volta no próximo loop
 
       userAtual = user;
-      pixAtual  = pixCobranca(userAtual);
+      const uint64_t cpfCnpj = strtoull(userAtual.cpfCnpj.c_str(), nullptr, 10);
+      const String valor(userAtual.divida, 2);
+
+      if (!equipeMqttEnviarPedidoPix(valor, cpfCnpj, ID_TOTEM)) break;
+      pixAtual = "";
+      if (!equipeMqttAguardarQrCode(TIMEOUT_QR_CODE_MS, pixAtual)) break;
       if (pixAtual.length() == 0) break;   // servidor não respondeu: tenta de novo no próximo loop
 
       Serial.println("Saída: " + userAtual.name + " deve " + String(userAtual.divida, 2));

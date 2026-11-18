@@ -43,6 +43,9 @@ bool lerUsuario(User &user) {
 
   user.uid    = uid;
   user.name   = jsonCampo(json, "nome");
+  user.cpfCnpj = jsonCampo(json, "cpfCnpj");
+  if (user.cpfCnpj.length() == 0)
+    user.cpfCnpj = jsonCampo(json, "cpf");
   user.divida = jsonCampo(json, "divida").toFloat();
   return true;
 }
