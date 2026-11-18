@@ -25,7 +25,7 @@ static void desenha() {
   switch (estado) {
     case SaidaEstado::AguardandoRFID: telaSaidaPassaRFID();      break;
     case SaidaEstado::MostrandoPix:   telaSaidaPix(pixAtual);    break;
-    case SaidaEstado::Despedida:      telaSaidaAdeus(userAtual.nome); break;
+    case SaidaEstado::Despedida:      telaSaidaAdeus(userAtual.name); break;
   }
 }
 
@@ -59,7 +59,7 @@ void totemSaidaLoop() {
       pixAtual  = pixCobranca(userAtual);
       if (pixAtual.length() == 0) break;   // servidor não respondeu: tenta de novo no próximo loop
 
-      Serial.println("Saída: " + userAtual.nome + " deve " + String(userAtual.divida, 2));
+      Serial.println("Saída: " + userAtual.name + " deve " + String(userAtual.divida, 2));
       entra(SaidaEstado::MostrandoPix);
       break;
     }

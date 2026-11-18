@@ -54,7 +54,7 @@ void totemComidaLoop() {
       }
 
       linkQR = novo;
-      nome = user.nome;
+      nome = user.name;
       entra(ComidaEstado::MostrandoQR);
       break;
     }

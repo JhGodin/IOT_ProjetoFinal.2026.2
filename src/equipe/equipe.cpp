@@ -1,5 +1,7 @@
 #include "../equipe.h"
 
+#include <ArduinoJson.h>
+
 #include "equipe_mqtt.h"
 #include "equipe_rfid.h"
 
@@ -40,13 +42,22 @@ bool lerUsuario(User &user) {
   if (jsonCampo(json, "erro").length() > 0) return false;
 
   user.uid    = uid;
-  user.nome   = jsonCampo(json, "nome");
+  user.name   = jsonCampo(json, "nome");
   user.divida = jsonCampo(json, "divida").toFloat();
   return true;
 }
 
 String pixCobranca(const User &user) {
-  if (!equipeMqttPedir(TOPICO_PIX_PEDIDO, user.uid)) return "";
+  // O valor é a dívida que o servidor já devolveu em lerUsuario(); o totem só
+  // pede o PIX pelo uid, quem calcula quanto cobrar é o servidor.
+  String tmp;
+  JsonDocument doc;
+  doc["uid"]    = user.uid;
+  doc["nome"]   = user.name;
+  doc["divida"] = user.divida;
+  serializeJson(doc, tmp);
+
+  if (!equipeMqttPedir(TOPICO_PIX_PEDIDO, tmp)) return "";
 
   String json;
   if (!equipeMqttAguardar(TOPICO_PIX_RESPOSTA, user.uid, TIMEOUT_PIX_MS, json)) {

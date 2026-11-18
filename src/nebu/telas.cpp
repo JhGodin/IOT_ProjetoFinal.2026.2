@@ -17,6 +17,26 @@ static const int16_t QR_LADO = 86;      // cabe em 128 - 34 - folga
 static const int16_t COL_DIR = 108;     // onde começa a coluna de texto
 
 // ---------------------------------------------------------------------------
+// Configuração
+// ---------------------------------------------------------------------------
+
+void telaBootConfiguracao(const String &ssid) {
+  telaComeca();
+
+  textoCentrado(FONTE_MEDIA, 24, "Configurar este totem");
+
+  // Rede aberta, formato padrão de QR de wifi: o celular já entra sem
+  // precisar digitar nada.
+  qrAjustado("WIFI:T:nopass;S:" + ssid + ";;", QR_X, QR_Y, QR_LADO);
+
+  textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 60, "Escaneie, entre");
+  textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 78, "na rede e abra");
+  textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 100, "192.168.4.1");
+
+  telaTermina(false);
+}
+
+// ---------------------------------------------------------------------------
 // Entrada
 // ---------------------------------------------------------------------------
 

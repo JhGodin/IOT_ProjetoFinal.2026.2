@@ -1,0 +1,24 @@
+<!-- ///////nebu/////// escolha do papel deste totem, servido pelo LittleFS do ESP -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configurar totem</title>
+</head>
+<body>
+  <p>Qual totem você quer configurar?</p>
+
+  <form action="/boot" method="POST">
+    <input type="radio" id="entrada" name="totem" value="Entrada">
+    <label for="entrada">Entrada</label><br>
+    <input type="radio" id="saida" name="totem" value="Saida">
+    <label for="saida">Saida</label><br>
+    <input type="radio" id="comida" name="totem" value="Comida">
+    <label for="comida">Comida</label><br>
+    <input type="radio" id="palco" name="totem" value="Palco">
+    <label for="palco">Palco</label><br>
+    <button type="submit">Confirmar</button>
+  </form>
+</body>
+</html>

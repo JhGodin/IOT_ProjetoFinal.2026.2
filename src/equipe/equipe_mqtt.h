@@ -23,6 +23,11 @@
 #define TOPICO_CARDAPIO_RESPOSTA  "totem/cardapio/resposta"
 #define TOPICO_PALCO_SHOWS        "totem/palco/shows"
 
+/// O papel só é conhecido depois do boot/configuração (ver main.cpp), então
+/// o client ID do MQTT não pode mais vir de TOTEM_PAPEL em build_flags.
+/// Chamar com "entrada"/"saida"/"comida"/"palco" ANTES de equipeMqttBegin().
+void equipeMqttDefinirPapel(const char *papel);
+
 void equipeMqttBegin();
 
 /// Chamar a cada volta do loop do totem. Não bloqueia: só mantém a conexão

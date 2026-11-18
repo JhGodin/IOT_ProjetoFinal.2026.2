@@ -16,8 +16,16 @@
 // alguém.
 struct User {
   String uid;             // UID do chip
-  String nome;
-  float  divida = 0.0f;   // consumo acumulado, em BRL
+  String name;
+  String cpfCnpj;
+  float  divida = 0;      // devolvido por lerUsuario(), via totem/usuario/resposta
+};
+
+struct Payment {
+  float value;             // UID do chip
+  String dueDate;
+  int id_totem;
+  User customer;
 };
 
 // --- Show, empurrado pelo servidor IoT para os totens de palco -------------

@@ -10,20 +10,13 @@
 static WiFiClient rede;
 static MQTTClient mqtt(1000);
 
-// TOTEM_PAPEL vem de build_flags (platformio.ini) como número cru — os
-// nomes TOTEM_ENTRADA etc. só existem dentro de main.cpp. Mapeamento tem
-// que ficar igual ao de lá: 1=entrada 2=saida 3=comida 4=palco 5=teste.
-#if TOTEM_PAPEL == 1
-static const char CLIENTE_ID_PAPEL[] = "totem-entrada";
-#elif TOTEM_PAPEL == 2
-static const char CLIENTE_ID_PAPEL[] = "totem-saida";
-#elif TOTEM_PAPEL == 3
-static const char CLIENTE_ID_PAPEL[] = "totem-comida";
-#elif TOTEM_PAPEL == 4
-static const char CLIENTE_ID_PAPEL[] = "totem-palco";
-#else
-static const char CLIENTE_ID_PAPEL[] = "totem-teste";
-#endif
+// Papel escolhido pela tela de configuração, não mais por TOTEM_PAPEL: dois
+// totens com o mesmo firmware podem acabar com papéis diferentes.
+static char clienteId[24] = "totem-indefinido";
+
+void equipeMqttDefinirPapel(const char *papel) {
+  snprintf(clienteId, sizeof(clienteId), "totem-%s", papel);
+}
 
 // Um slot por tópico de resposta assinado — são poucos e fixos, não precisa
 // de um mapa de verdade.
@@ -63,7 +56,7 @@ void equipeMqttLoop() {
 
   if (!mqtt.connected()) {
     // Uma tentativa por volta do loop — nunca bloqueia esperando conectar.
-    if (mqtt.connect(CLIENTE_ID_PAPEL, MQTT_USUARIO, MQTT_SENHA)) {
+    if (mqtt.connect(clienteId, MQTT_USUARIO, MQTT_SENHA)) {
       for (size_t i = 0; i < N_SLOTS; i++) mqtt.subscribe(slots[i].topico);
     }
     return;

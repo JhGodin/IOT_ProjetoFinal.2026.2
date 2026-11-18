@@ -14,6 +14,9 @@
 // refresh do e-ink bloqueia ~1-2 s e gasta vida útil do painel.
 // ---------------------------------------------------------------------------
 
+// --- Configuração ao ligar (antes de saber qual totem é este) ---
+void telaBootConfiguracao(const String &ssid);
+
 // --- Totem de entrada ---
 void telaEntradaIngresso(const String &linkCadastro);
 void telaEntradaAguardando();
