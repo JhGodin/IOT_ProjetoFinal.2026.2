@@ -10,6 +10,7 @@
 // na porta 1883. certificados.h existe mas não é usado por ninguém hoje.
 static WiFiClient rede;
 static MQTTClient mqtt(1000);
+static char topicoPaymentQrCode[40] = "";
 
 // Papel escolhido pela tela de configuração, não mais por TOTEM_PAPEL: dois
 // totens com o mesmo firmware podem acabar com papéis diferentes.
@@ -35,6 +36,7 @@ static SlotResposta slots[] = {
     {TOPICO_PAGAMENTO_RESPOSTA, "", false},
     {TOPICO_CARDAPIO_RESPOSTA, "", false},
     {TOPICO_PALCO_SHOWS, "", false},
+    {topicoPaymentQrCode, "", false},
 };
 static const size_t N_SLOTS = sizeof(slots) / sizeof(slots[0]);
 
@@ -79,7 +81,10 @@ void equipeMqttLoop()
     if (mqtt.connect(clienteId, MQTT_USUARIO, MQTT_SENHA))
     {
       for (size_t i = 0; i < N_SLOTS; i++)
-        mqtt.subscribe(slots[i].topico);
+      {
+        if (slots[i].topico[0] != '\0')
+          mqtt.subscribe(slots[i].topico);
+      }
     }
     else
     {
@@ -99,6 +104,25 @@ void equipeMqttLoop()
 
 bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj, int idTotem)
 {
+  snprintf(topicoPaymentQrCode, sizeof(topicoPaymentQrCode),
+           "paymentQrCode/%d", idTotem);
+
+  if (!equipeMqttPronto())
+    return false;
+
+  for (size_t i = 0; i < N_SLOTS; i++)
+  {
+    if (slots[i].topico == topicoPaymentQrCode)
+    {
+      slots[i].payload = "";
+      slots[i].novo = false;
+      break;
+    }
+  }
+
+  if (!mqtt.subscribe(topicoPaymentQrCode))
+    return false;
+
   JsonDocument doc;
   doc["value"] = value.toFloat();
   doc["dueDate"] = "2027-10-29";
@@ -116,6 +140,25 @@ bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj, int idTote
   serializeJson(doc, json);
 
   return equipeMqttPublicar(TOPICO_PIX_PEDIDO, json);
+}
+
+bool equipeMqttAguardarQrCode(uint32_t timeoutMs, String &qrCode)
+{
+  if (topicoPaymentQrCode[0] == '\0')
+    return false;
+
+  const uint32_t comeco = millis();
+  while (millis() - comeco < timeoutMs)
+  {
+    equipeMqttLoop();
+
+    if (equipeMqttResposta(topicoPaymentQrCode, qrCode))
+      return true;
+
+    delay(50);
+  }
+
+  return false;
 }
 
 bool equipeMqttPronto()
