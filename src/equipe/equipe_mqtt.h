@@ -38,6 +38,10 @@ bool equipeMqttPronto();
 
 bool equipeMqttPublicar(const char *topico, const String &payload);
 
+/// Monta o JSON do pedido PIX e o envia uma única vez para totem/pix/pedido.
+bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj,
+                               int idTotem);
+
 /// Publica {"uid":"<uid>"} no tópico de pedido indicado.
 bool equipeMqttPedir(const char *topicoPedido, const String &uid);
 
