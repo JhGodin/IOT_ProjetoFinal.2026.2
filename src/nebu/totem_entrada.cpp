@@ -10,7 +10,7 @@
 // --- Configuração -----------------------------------------------------------
 
 /// PLACEHOLDER: página de cadastro do site, mostrada enquanto espera alguém.
-static const char LINK_CADASTRO[] = "https://exemplo.com/cadastro";
+static const char LINK_CADASTRO[] = "http://127.0.0.1:5000";
 
 static const uint32_t TIMEOUT_CONFIRMACAO_MS = 30000;
 
