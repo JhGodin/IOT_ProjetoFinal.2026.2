@@ -15,9 +15,7 @@
 // O MFRC522 reaproveita SCK/MOSI/MISO e precisa de CS e RST próprios.
 
 // --- Leitor RFID MFRC522 (mesma ligacao usada no ESP_cardapio) ---
-// GPIO46 é input-only no ESP32-S3 (pino de strapping) -- nunca dava pra usar
-// como CS, o MFRC522 nunca foi selecionado de verdade. Trocado por GPIO4.
-#define PIN_RFID_CS      4
+#define PIN_RFID_CS      46
 #define PIN_RFID_RST     17
 
 // --- Leitor de QR por serial (UART1) ---

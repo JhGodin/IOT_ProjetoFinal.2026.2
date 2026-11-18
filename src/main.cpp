@@ -54,6 +54,12 @@ static void recebeEscolhaTotem() {
 static void iniciaTotemEscolhido() {
   servidor.stop();
   WiFi.softAPdisconnect(true);
+  // softAPdisconnect() desliga o AP de forma assincrona; trocar pra WIFI_STA
+  // direto corre com esse desligamento ainda em andamento e o registro do
+  // netif da STA falha (ESP_ERR_WIFI_STOP_STATE). WIFI_OFF entre os dois
+  // garante que o radio esta mesmo parado antes de subir a STA.
+  WiFi.mode(WIFI_OFF);
+  delay(200);
   WiFi.mode(WIFI_STA);
   delay(300);   // deixa a fonte assentar antes do refresh do e-ink
 
@@ -107,7 +113,6 @@ void setup() {
 
 void loop() {
   if (papelEscolhido == Papel::Indefinido) {
-    Serial.println("setup loop\n");
     servidor.handleClient();
     return;
   }
@@ -122,7 +127,7 @@ void loop() {
   equipeMqttLoop();
 
   switch (papelEscolhido) {
-    case Papel::Entrada: totemEntradaLoop(); Serial.println("worked\n"); break;
+    case Papel::Entrada: totemEntradaLoop(); break;
     case Papel::Saida:   totemSaidaLoop();   break;
     case Papel::Comida:  totemComidaLoop();  break;
     case Papel::Palco:   totemPalcoLoop();   break;

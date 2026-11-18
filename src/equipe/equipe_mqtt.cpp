@@ -52,14 +52,30 @@ void equipeMqttBegin() {
 }
 
 void equipeMqttLoop() {
+  // So pra depuracao em campo: avisa uma vez quando cada camada conecta, pra
+  // diferenciar "nao pegou wifi" de "pegou wifi mas nao conectou no broker".
+  static bool avisouWifi = false;
+  static bool avisouMqtt = false;
+
   if (WiFi.status() != WL_CONNECTED) return;
+  if (!avisouWifi) {
+    Serial.println("WiFi conectado, IP " + WiFi.localIP().toString());
+    avisouWifi = true;
+  }
 
   if (!mqtt.connected()) {
     // Uma tentativa por volta do loop — nunca bloqueia esperando conectar.
     if (mqtt.connect(clienteId, MQTT_USUARIO, MQTT_SENHA)) {
       for (size_t i = 0; i < N_SLOTS; i++) mqtt.subscribe(slots[i].topico);
+    } else {
+      Serial.println("MQTT: connect() falhou, erro " + String(mqtt.lastError()));
     }
     return;
+  }
+
+  if (!avisouMqtt) {
+    Serial.println("MQTT conectado em mqtt.janks.dev.br");
+    avisouMqtt = true;
   }
 
   mqtt.loop();
