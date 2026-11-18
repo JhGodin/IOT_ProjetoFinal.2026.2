@@ -11,6 +11,11 @@
 --       uma linha por produto de cada pedido feito em /loja (como a tabela consumos do Projeto 05)
 --       preco guarda o preco do produto no momento da compra
 --       id e data_hora devem ser automaticos, porque o servidor nao envia esses campos
+--   totens (id, tipo)
+--       um totem por linha. tipo e um dos valores de boot_esp.html: "Entrada",
+--       "Saida", "Comida" ou "Palco" -- usado pra montar os checkboxes de /avisos
+--       (quais totens chamar) e, mais pra frente, pra cada totem saber seu
+--       proprio id depois do boot/configuracao.
 --
 -- Ao ligar, o servidor confere essas colunas e mostra no terminal "Tabela ...: ok" ou o erro.
 

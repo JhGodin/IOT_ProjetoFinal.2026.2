@@ -78,7 +78,7 @@ threadMQTT.start()
 app = Flask(__name__)
 app.secret_key = token_urlsafe(32)
 
-registrarNebu(app, mqtt)
+registrarNebu(app, mqtt, engine)
 
 
 def tratarDados():
