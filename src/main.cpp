@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <DNSServer.h>
 #include <LittleFS.h>
 
 #include "nebu/display.h"
@@ -22,6 +23,7 @@
 enum class Papel : uint8_t { Indefinido, Entrada, Saida, Comida, Palco };
 
 static WebServer servidor(80);
+static DNSServer dns;
 static Papel      papelEscolhido = Papel::Indefinido;
 
 static void enviaPaginaBoot() {
@@ -53,6 +55,7 @@ static void recebeEscolhaTotem() {
 /// chama o Begin do papel escolhido. Só roda uma vez.
 static void iniciaTotemEscolhido() {
   servidor.stop();
+  dns.stop();
   WiFi.softAPdisconnect(true);
   // softAPdisconnect() desliga o AP de forma assincrona; trocar pra WIFI_STA
   // direto corre com esse desligamento ainda em andamento e o registro do
@@ -102,17 +105,24 @@ void setup() {
   ssid.replace(":", "");
   WiFi.softAP(ssid.c_str());   // rede aberta, sem senha
 
+  // Portal cativo: DNS responde qualquer dominio com o IP do totem, e
+  // qualquer caminho desconhecido cai na mesma pagina -- e assim que o
+  // celular abre o navegador sozinho ao entrar na rede, sem precisar digitar
+  // o IP. Sem isso continua funcionando igual, só sem o popup automatico.
+  dns.start(53, "*", WiFi.softAPIP());
+
   telaBootConfiguracao(ssid);
 
   servidor.on("/", HTTP_GET, enviaPaginaBoot);
   servidor.on("/boot_esp.html", HTTP_GET, enviaPaginaBoot);
   servidor.on("/boot", HTTP_POST, recebeEscolhaTotem);
+  servidor.onNotFound(enviaPaginaBoot);
   servidor.begin();
-
 }
 
 void loop() {
   if (papelEscolhido == Papel::Indefinido) {
+    dns.processNextRequest();
     servidor.handleClient();
     return;
   }
