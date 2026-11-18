@@ -55,6 +55,7 @@ static void iniciaTotemEscolhido() {
   servidor.stop();
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
+  delay(300);   // deixa a fonte assentar antes do refresh do e-ink
 
   switch (papelEscolhido) {
     case Papel::Entrada:
@@ -101,16 +102,19 @@ void setup() {
   servidor.on("/boot_esp.html", HTTP_GET, enviaPaginaBoot);
   servidor.on("/boot", HTTP_POST, recebeEscolhaTotem);
   servidor.begin();
+
 }
 
 void loop() {
   if (papelEscolhido == Papel::Indefinido) {
+    Serial.println("setup loop\n");
     servidor.handleClient();
     return;
   }
 
   static bool jaIniciou = false;
   if (!jaIniciou) {
+    Serial.println("worked\n");
     iniciaTotemEscolhido();
     jaIniciou = true;
   }
@@ -118,7 +122,7 @@ void loop() {
   equipeMqttLoop();
 
   switch (papelEscolhido) {
-    case Papel::Entrada: totemEntradaLoop(); break;
+    case Papel::Entrada: totemEntradaLoop(); Serial.println("worked\n"); break;
     case Papel::Saida:   totemSaidaLoop();   break;
     case Papel::Comida:  totemComidaLoop();  break;
     case Papel::Palco:   totemPalcoLoop();   break;
