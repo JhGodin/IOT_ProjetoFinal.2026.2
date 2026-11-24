@@ -33,7 +33,7 @@ void telaBootConfiguracao(const String &ssid) {
   textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 78, "na rede e abra");
   textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 100, "192.168.4.1");
 
-  telaTermina(false);
+  telaTermina(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -55,14 +55,14 @@ void telaEntradaIngresso(const String &linkCadastro) {
   // Seta apontando do texto para o QR.
   texto(FONTE_SETA, QR_X + QR_LADO + 4, 84, "A");
 
-  telaTermina(false);
+  telaTermina(true);
 }
 
 void telaEntradaAguardando() {
   telaComeca();
   textoCentrado(FONTE_GRANDE, 58, "Aguarde");
   textoCentrado(FONTE_MEDIA, 92, "confirmação no celular");
-  telaTermina(false);
+  telaTermina(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ void telaEntradaAguardando() {
 void telaSaidaPassaRFID() {
   telaComeca();
   textoCentrado(FONTE_GRANDE, 74, "Passe seu RFID");
-  telaTermina(false);
+  telaTermina(true);
 }
 
 void telaSaidaPix(const String &conteudoQR) {
@@ -86,7 +86,7 @@ void telaSaidaPix(const String &conteudoQR) {
   if (!qrAjustado(conteudoQR, 6, 6, lado)) {
     textoCentrado(FONTE_MEDIA, 60, "Erro no pagamento");
     textoCentrado(FONTE_PEQUENA, 84, "Procure a organização");
-    telaTermina(false);
+    telaTermina(true);
     return;
   }
 
@@ -95,7 +95,7 @@ void telaSaidaPix(const String &conteudoQR) {
   textoCentradoEntre(FONTE_PEQUENA, colTexto, telaLargura(), 82, "Escaneie para");
   textoCentradoEntre(FONTE_PEQUENA, colTexto, telaLargura(), 100, "finalizar");
 
-  telaTermina(false);
+  telaTermina(true);
 }
 
 void telaSaidaAdeus(const String &nome) {
@@ -103,7 +103,7 @@ void telaSaidaAdeus(const String &nome) {
   // Duas linhas: nome comprido não estoura a largura.
   textoCentrado(FONTE_MEDIA, 58, "Até a próxima,");
   textoCentrado(FONTE_GRANDE, 92, nome + " :)");
-  telaTermina(false);
+  telaTermina(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +114,7 @@ void telaComidaPassaRFID() {
   telaComeca();
   textoCentrado(FONTE_MEDIA, 50, "Passe seu RFID");
   textoCentrado(FONTE_MEDIA, 80, "pra ver o cardápio");
-  telaTermina(false);
+  telaTermina(true);
 }
 
 void telaComidaCardapio(const String &linkCardapio, const String &nome) {
@@ -125,7 +125,7 @@ void telaComidaCardapio(const String &linkCardapio, const String &nome) {
   if (!qrAjustado(linkCardapio, QR_X, QR_Y, QR_LADO)) {
     textoCentrado(FONTE_MEDIA, 60, "Erro no cardápio");
     textoCentrado(FONTE_PEQUENA, 84, "Procure a organização");
-    telaTermina(false);
+    telaTermina(true);
     return;
   }
 
@@ -136,7 +136,7 @@ void telaComidaCardapio(const String &linkCardapio, const String &nome) {
   textoCentradoEntre(FONTE_PEQUENA, COL_DIR, telaLargura(), 90,
                      "pelo celular");
 
-  telaTermina(false);
+  telaTermina(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -152,7 +152,7 @@ void telaPalco(const Show &show) {
   textoCentrado(FONTE_GRANDE, 74, show.artista);
   textoCentrado(FONTE_MEDIA, 110, show.horario);
 
-  telaTermina(false);
+  telaTermina(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -169,5 +169,5 @@ void telaAviso(const String &titulo, const String &corpo) {
   textoCentrado(FONTE_MEDIA, 92, corpo);
 
   fontes.setForegroundColor(GxEPD_BLACK);   // restaura para as telas normais
-  telaTermina(false);
+  telaTermina(true);
 }

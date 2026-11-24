@@ -1,3 +1,4 @@
+import json
 from secrets import token_urlsafe
 from threading import Thread
 
@@ -26,6 +27,15 @@ if engine is None:
 with engine.begin() as conexao:
     conexao.execute(text('ALTER TABLE "clientes" ADD COLUMN IF NOT EXISTS telefone TEXT'))
     conexao.execute(text('ALTER TABLE "clientes" ADD COLUMN IF NOT EXISTS email TEXT'))
+    # id do totem e so um numero de enfeite (um totem por tipo, de cada vez) --
+    # quem identifica de verdade e o tipo, por isso o UNIQUE fica nele, nao no id.
+    # "totens" pode nem existir ainda no banco de verdade (nunca foi criada no
+    # Beekeeper), diferente de "clientes" -- por isso cria a tabela tambem,
+    # nao so o indice.
+    conexao.execute(text(
+        'CREATE TABLE IF NOT EXISTS "totens" (id SERIAL PRIMARY KEY, tipo TEXT NOT NULL)'
+    ))
+    conexao.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS idx_totens_tipo ON "totens" (tipo)'))
 
 
 
@@ -48,16 +58,43 @@ def ConectarMQTT(cliente, dados_usuario, flags, codigo, propriedades):
         print(f"Conexao MQTT recusada: {codigo}", flush=True)
         return
 
-    resultado, _ = cliente.subscribe("totem/rfid", qos=0)
-    if resultado != mqtt_python.MQTT_ERR_SUCCESS:
-        print(f"Falha ao assinar totem/rfid: {resultado}", flush=True)
+    for topico in ("totem/rfid", "totem/registro"):
+        resultado, _ = cliente.subscribe(topico, qos=0)
+        if resultado != mqtt_python.MQTT_ERR_SUCCESS:
+            print(f"Falha ao assinar {topico}: {resultado}", flush=True)
 def reconectarMQTT():
     mqtt.loop_forever(retry_first_connection=True)
+def tratarRegistroTotem(payload):
+    try:
+        dados = json.loads(payload)
+    except ValueError:
+        print(f"totem/registro: payload invalido: {payload!r}", flush=True)
+        return
+
+    tipo = dados.get("tipo", "").strip()
+    if not tipo:
+        return
+
+    # So existe um totem de cada tipo por vez (projeto de aula) -- o "id" que
+    # o ESP manda e so de enfeite, quem decide se e repetido e o tipo.
+    try:
+        with engine.begin() as conexao:
+            conexao.execute(
+                text('INSERT INTO "totens" (tipo) VALUES (:tipo) ON CONFLICT (tipo) DO NOTHING'),
+                {"tipo": tipo},
+            )
+    except SQLAlchemyError as erro:
+        print(f"totem/registro: erro ao gravar '{tipo}': {erro}", flush=True)
 def recebeuMensagem(cliente, dados_usuario, mensagem):
     global leituraRFID
     global cpfAtual
 
     print(mensagem)
+
+    if mensagem.topic == "totem/registro":
+        tratarRegistroTotem(mensagem.payload.decode("utf-8", errors="replace"))
+        return
+
     if mensagem.topic != "totem/rfid" or mensagem.retain:
         return
 

@@ -12,6 +12,9 @@
 
 // Tópicos já em produção (ESP_login.cpp / sites.py).
 #define TOPICO_RFID               "totem/rfid"
+// Anuncio do totem pra sites.py gravar em "totens" (ver main.cpp). Sem
+// resposta -- não é o contrato de usuario/pix/cardapio, é só cadastro.
+#define TOPICO_TOTEM_REGISTRO     "totem/registro"
 
 // Tópicos novos deste contrato — AINDA SEM SERVIDOR DO OUTRO LADO.
 #define TOPICO_USUARIO_PEDIDO     "totem/usuario/pedido"

@@ -25,6 +25,7 @@ enum class Papel : uint8_t { Indefinido, Entrada, Saida, Comida, Palco };
 static WebServer servidor(80);
 static DNSServer dns;
 static Papel      papelEscolhido = Papel::Indefinido;
+static const char *papelTexto = "";
 
 static void enviaPaginaBoot() {
   File arquivo = LittleFS.open("/boot_esp.html", "r");
@@ -67,27 +68,29 @@ static void iniciaTotemEscolhido() {
   delay(300);   // deixa a fonte assentar antes do refresh do e-ink
 
   switch (papelEscolhido) {
-    case Papel::Entrada:
-      equipeMqttDefinirPapel("entrada");
-      totemEntradaBegin();
-      break;
-    case Papel::Saida:
-      equipeMqttDefinirPapel("saida");
-      totemSaidaBegin();
-      break;
-    case Papel::Comida:
-      equipeMqttDefinirPapel("comida");
-      totemComidaBegin();
-      break;
-    case Papel::Palco:
-      equipeMqttDefinirPapel("palco");
-      totemPalcoBegin();
-      break;
-    case Papel::Indefinido:
-      break;
+    case Papel::Entrada: papelTexto = "entrada"; totemEntradaBegin(); break;
+    case Papel::Saida:   papelTexto = "saida";   totemSaidaBegin();   break;
+    case Papel::Comida:  papelTexto = "comida";  totemComidaBegin();  break;
+    case Papel::Palco:   papelTexto = "palco";   totemPalcoBegin();   break;
+    case Papel::Indefinido: break;
   }
 
+  equipeMqttDefinirPapel(papelTexto);
   equipeMqttBegin();
+}
+
+/// Avisa o sites.py que este totem existe, pra ele gravar em "totens".
+/// Só dá pra publicar depois que o MQTT conecta (equipeMqttLoop, no loop()),
+/// então isso só roda uma vez, na primeira volta em que equipeMqttPronto().
+static void anunciaTotemUmaVez() {
+  static bool anunciado = false;
+  if (anunciado || !equipeMqttPronto()) return;
+
+  // "id" é só de enfeite (o projeto só tem um totem de cada tipo por vez) --
+  // quem o sites.py usa pra não duplicar linha é o "tipo".
+  String payload = "{\"id\":1,\"tipo\":\"" + String(papelTexto) + "\"}";
+  equipeMqttPublicar(TOPICO_TOTEM_REGISTRO, payload);
+  anunciado = true;
 }
 
 void setup() {
@@ -135,6 +138,7 @@ void loop() {
   }
 
   equipeMqttLoop();
+  anunciaTotemUmaVez();
 
   switch (papelEscolhido) {
     case Papel::Entrada: totemEntradaLoop(); break;
