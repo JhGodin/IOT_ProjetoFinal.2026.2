@@ -69,13 +69,8 @@ String pixCobranca(const User &user) {
   return jsonCampo(json, "payload");
 }
 
-bool pagamentoConfirmado(const User &user) {
-  // Chamada a cada volta do loop em MostrandoPix (ver totem_saida.cpp) —
-  // só confere o que já chegou, nunca espera.
-  String json;
-  if (!equipeMqttResposta(TOPICO_PAGAMENTO_RESPOSTA, json)) return false;
-  if (jsonCampo(json, "uid") != user.uid) return false;
-  return jsonCampo(json, "confirmado") == "true";
+bool pagamentoConfirmado(const String &idPagamento) {
+  return equipeMqttPagamentoConfirmado(idPagamento);
 }
 
 String linkCardapio(const User &user) {
