@@ -66,8 +66,8 @@ bool anunciarChegada(const String &uid);
 /// Devolve o que vai dentro do QR de pagamento.
 String pixCobranca(const User &user);
 
-/// true quando o pagamento daquele usuário caiu.
-bool pagamentoConfirmado(const User &user);
+/// true quando o webhook confirmou exatamente este ID de pagamento.
+bool pagamentoConfirmado(const String &idPagamento);
 
 // --- Cardápio / AP WiFi ------------------------------
 

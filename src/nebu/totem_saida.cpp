@@ -25,6 +25,7 @@ static GFButton &botao()
 // Pessoa sendo atendida agora. Só vale em MostrandoPix e Despedida.
 static User userAtual;
 static String pixAtual;
+static String pagamentoAtual;
 
 static void desenha()
 {
@@ -84,9 +85,11 @@ void totemSaidaLoop()
     if (!equipeMqttEnviarPedidoPix(valor, cpfCnpj, ID_TOTEM))
       break;
     pixAtual = "";
-    if (!equipeMqttAguardarQrCode(ID_TOTEM, TIMEOUT_QR_CODE_MS, pixAtual))
+    pagamentoAtual = "";
+    if (!equipeMqttAguardarQrCode(ID_TOTEM, TIMEOUT_QR_CODE_MS, pixAtual,
+                                  pagamentoAtual))
       break;
-    if (pixAtual.length() == 0)
+    if (pixAtual.length() == 0 || pagamentoAtual.length() == 0)
       break; // servidor não respondeu: tenta de novo no próximo loop
 
     Serial.println("Saída: " + userAtual.name + " deve " + String(userAtual.divida, 2));
@@ -96,7 +99,7 @@ void totemSaidaLoop()
 
   case SaidaEstado::MostrandoPix:
   {
-    if (pagamentoConfirmado(userAtual))
+    if (pagamentoConfirmado(pagamentoAtual))
     {
       entra(SaidaEstado::Despedida);
     }

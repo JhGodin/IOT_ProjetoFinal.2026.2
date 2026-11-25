@@ -100,9 +100,10 @@ void telaSaidaPix(const String &conteudoQR) {
 
 void telaSaidaAdeus(const String &nome) {
   telaComeca();
+  textoCentrado(FONTE_MEDIA, 42, "Pagamento confirmado!");
   // Duas linhas: nome comprido não estoura a largura.
-  textoCentrado(FONTE_MEDIA, 58, "Até a próxima,");
-  textoCentrado(FONTE_GRANDE, 92, nome + " :)");
+  textoCentrado(FONTE_PEQUENA, 72, "Obrigado,");
+  textoCentrado(FONTE_GRANDE, 104, nome + " :)");
   telaTermina(true);
 }
 
