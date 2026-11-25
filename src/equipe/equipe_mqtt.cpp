@@ -9,8 +9,12 @@
 // Sem TLS: o broker e o servidor (sites.py) também conversam em texto puro
 // na porta 1883. certificados.h existe mas não é usado por ninguém hoje.
 static WiFiClient rede;
-static MQTTClient mqtt(1000);
+// O webhook do Asaas e bem maior que as mensagens normais do projeto. O
+// exemplo real fica acima de 1 KB, portanto o buffer antigo truncava o JSON.
+static MQTTClient mqtt(4096);
 static char topicoPaymentQrCode[40] = "";
+static String idPagamentoAguardado;
+static bool pagamentoRecebido = false;
 
 // Papel escolhido pela tela de configuração, não mais por TOTEM_PAPEL: dois
 // totens com o mesmo firmware podem acabar com papéis diferentes.
@@ -33,7 +37,6 @@ struct SlotResposta
 static SlotResposta slots[] = {
     {TOPICO_USUARIO_RESPOSTA, "", false},
     {TOPICO_PIX_RESPOSTA, "", false},
-    {TOPICO_PAGAMENTO_RESPOSTA, "", false},
     {TOPICO_CARDAPIO_RESPOSTA, "", false},
     {TOPICO_PALCO_SHOWS, "", false},
     {topicoPaymentQrCode, "", false},
@@ -42,6 +45,30 @@ static const size_t N_SLOTS = sizeof(slots) / sizeof(slots[0]);
 
 static void aoChegarMensagem(String topico, String payload)
 {
+  if (topico == TOPICO_PAGAMENTO_RECEBIDO)
+  {
+    JsonDocument doc;
+    DeserializationError erro = deserializeJson(doc, payload);
+    if (erro)
+    {
+      Serial.println("paymentReceived: JSON invalido: " + String(erro.c_str()));
+      return;
+    }
+
+    const String evento = doc["event"] | "";
+    const String status = doc["payment"]["status"] | "";
+    const String idRecebido = doc["payment"]["id"] | "";
+
+    if (evento == "PAYMENT_RECEIVED" && status == "RECEIVED" &&
+        idPagamentoAguardado.length() > 0 &&
+        idRecebido == idPagamentoAguardado)
+    {
+      pagamentoRecebido = true;
+      Serial.println("Pagamento recebido: " + idRecebido);
+    }
+    return;
+  }
+
   for (size_t i = 0; i < N_SLOTS; i++)
   {
     if (topico == slots[i].topico)
@@ -86,6 +113,7 @@ void equipeMqttLoop()
         if (!mqtt.subscribe(slots[i].topico))
           Serial.println("MQTT: subscribe() falhou em " + String(slots[i].topico));
       }
+      mqtt.subscribe(TOPICO_PAGAMENTO_RECEBIDO);
     }
     else
     {
@@ -107,17 +135,18 @@ bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj, int idTote
 {
   snprintf(topicoPaymentQrCode, sizeof(topicoPaymentQrCode),
            "paymentQrCode/%d", idTotem);
+  idPagamentoAguardado = "";
+  pagamentoRecebido = false;
 
   if (!equipeMqttPronto())
     return false;
 
   for (size_t i = 0; i < N_SLOTS; i++)
   {
-    if (slots[i].topico == topicoPaymentQrCode)
+    if (strcmp(slots[i].topico, topicoPaymentQrCode) == 0)
     {
       slots[i].payload = "";
       slots[i].novo = false;
-      break;
     }
   }
 
@@ -143,9 +172,23 @@ bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj, int idTote
   return equipeMqttPublicar(TOPICO_PIX_PEDIDO, json);
 }
 
-bool equipeMqttAguardarQrCode(uint32_t timeoutMs, String &qrCode)
+bool equipeMqttAguardarQrCode(int idTotem, uint32_t timeoutMs, String &qrCode,
+                             String &idPagamento)
 {
-  if (topicoPaymentQrCode[0] == '\0')
+  char topicoEsperado[40];
+  snprintf(topicoEsperado, sizeof(topicoEsperado),
+           "paymentQrCode/%d", idTotem);
+
+  if (strcmp(topicoPaymentQrCode, topicoEsperado) != 0)
+  {
+    snprintf(topicoPaymentQrCode, sizeof(topicoPaymentQrCode),
+             "%s", topicoEsperado);
+  }
+
+  if (!equipeMqttPronto())
+    return false;
+
+  if (!mqtt.subscribe(topicoPaymentQrCode))
     return false;
 
   const uint32_t comeco = millis();
@@ -153,13 +196,59 @@ bool equipeMqttAguardarQrCode(uint32_t timeoutMs, String &qrCode)
   {
     equipeMqttLoop();
 
-    if (equipeMqttResposta(topicoPaymentQrCode, qrCode))
+    String resposta;
+    if (equipeMqttResposta(topicoPaymentQrCode, resposta))
+    {
+      JsonDocument doc;
+      DeserializationError erro = deserializeJson(doc, resposta);
+      if (erro)
+      {
+        Serial.println("paymentQrCode: esperado JSON com QR e ID do pagamento");
+        return false;
+      }
+
+      // Formato recomendado pelo fluxo que cria a cobranca:
+      // {"paymentId":"pay_...","payload":"000201..."}
+      // As alternativas abaixo permitem encaminhar respostas ja existentes.
+      idPagamento = doc["paymentId"] | "";
+      if (idPagamento.length() == 0)
+        idPagamento = doc["id"] | "";
+      if (idPagamento.length() == 0)
+        idPagamento = doc["payment"]["id"] | "";
+
+      qrCode = doc["payload"] | "";
+      if (qrCode.length() == 0)
+        qrCode = doc["qrCode"] | "";
+      if (qrCode.length() == 0)
+        qrCode = doc["pixQrCode"]["payload"] | "";
+
+      if (idPagamento.length() == 0 || qrCode.length() == 0)
+      {
+        Serial.println("paymentQrCode: faltou paymentId ou payload");
+        return false;
+      }
+
+      idPagamentoAguardado = idPagamento;
+      pagamentoRecebido = false;
+      Serial.println("Aguardando pagamento: " + idPagamentoAguardado);
       return true;
+    }
 
     delay(50);
   }
 
   return false;
+}
+
+bool equipeMqttPagamentoConfirmado(const String &idPagamento)
+{
+  if (idPagamento.length() == 0 || idPagamento != idPagamentoAguardado ||
+      !pagamentoRecebido)
+    return false;
+
+  pagamentoRecebido = false;
+  idPagamentoAguardado = "";
+  return true;
 }
 
 bool equipeMqttPronto()

@@ -21,7 +21,7 @@
 #define TOPICO_USUARIO_RESPOSTA   "totem/usuario/resposta"
 #define TOPICO_PIX_PEDIDO         "totem/pix/pedido"
 #define TOPICO_PIX_RESPOSTA       "totem/pix/resposta"
-#define TOPICO_PAGAMENTO_RESPOSTA "totem/pagamento/resposta"
+#define TOPICO_PAGAMENTO_RECEBIDO "paymentReceived"
 #define TOPICO_CARDAPIO_PEDIDO    "totem/cardapio/pedido"
 #define TOPICO_CARDAPIO_RESPOSTA  "totem/cardapio/resposta"
 #define TOPICO_PALCO_SHOWS        "totem/palco/shows"
@@ -45,8 +45,14 @@ bool equipeMqttPublicar(const char *topico, const String &payload);
 bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj,
                                int idTotem);
 
-/// Aguarda o payload em paymentQrCode/<id_totem>, assinado no último pedido.
-bool equipeMqttAguardarQrCode(uint32_t timeoutMs, String &qrCode);
+/// Aguarda a resposta JSON em paymentQrCode/<id_totem> e separa o conteudo
+/// do QR do ID da cobranca (pay_...) devolvido pela criacao do pagamento.
+bool equipeMqttAguardarQrCode(int idTotem, uint32_t timeoutMs, String &qrCode,
+                             String &idPagamento);
+
+/// true uma unica vez quando paymentReceived trouxer PAYMENT_RECEIVED para o
+/// mesmo payment.id que este totem esta aguardando.
+bool equipeMqttPagamentoConfirmado(const String &idPagamento);
 
 /// Publica {"uid":"<uid>"} no tópico de pedido indicado.
 bool equipeMqttPedir(const char *topicoPedido, const String &uid);
