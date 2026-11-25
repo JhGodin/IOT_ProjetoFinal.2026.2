@@ -45,8 +45,8 @@ bool equipeMqttPublicar(const char *topico, const String &payload);
 bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj,
                                int idTotem);
 
-/// Aguarda o payload em paymentQrCode/<id_totem>, assinado no último pedido.
-bool equipeMqttAguardarQrCode(uint32_t timeoutMs, String &qrCode);
+/// Aguarda o payload em paymentQrCode/<id_totem> e o devolve em qrCode.
+bool equipeMqttAguardarQrCode(int idTotem, uint32_t timeoutMs, String &qrCode);
 
 /// Publica {"uid":"<uid>"} no tópico de pedido indicado.
 bool equipeMqttPedir(const char *topicoPedido, const String &uid);

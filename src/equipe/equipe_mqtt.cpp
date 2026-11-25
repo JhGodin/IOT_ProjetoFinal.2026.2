@@ -142,9 +142,22 @@ bool equipeMqttEnviarPedidoPix(const String &value, uint64_t cpfCnpj, int idTote
   return equipeMqttPublicar(TOPICO_PIX_PEDIDO, json);
 }
 
-bool equipeMqttAguardarQrCode(uint32_t timeoutMs, String &qrCode)
+bool equipeMqttAguardarQrCode(int idTotem, uint32_t timeoutMs, String &qrCode)
 {
-  if (topicoPaymentQrCode[0] == '\0')
+  char topicoEsperado[40];
+  snprintf(topicoEsperado, sizeof(topicoEsperado),
+           "paymentQrCode/%d", idTotem);
+
+  if (strcmp(topicoPaymentQrCode, topicoEsperado) != 0)
+  {
+    snprintf(topicoPaymentQrCode, sizeof(topicoPaymentQrCode),
+             "%s", topicoEsperado);
+  }
+
+  if (!equipeMqttPronto())
+    return false;
+
+  if (!mqtt.subscribe(topicoPaymentQrCode))
     return false;
 
   const uint32_t comeco = millis();
