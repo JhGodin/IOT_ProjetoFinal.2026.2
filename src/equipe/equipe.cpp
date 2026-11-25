@@ -27,19 +27,30 @@ bool anunciarChegada(const String &uid) {
 
 bool lerUsuario(User &user) {
   String uid;
-  if (!rfidLerUID(uid)) return false;
+  if (!rfidLerUID(uid)) return false;   // nenhum chip agora: caso normal, sem log
+
+  // A partir daqui um chip FOI lido -- qualquer "false" abaixo é informação
+  // nova (rede ou servidor), não mais "nada aconteceu ainda".
+  Serial.println("lerUsuario: lido " + uid + ", consultando totem/usuario/pedido...");
 
   // Toda leitura (saída ou comida) também alimenta o fluxo de vínculo
   // UID<->CPF que o site/servidor já usa hoje (ver sites.py /rfid).
   equipeMqttPublicar(TOPICO_RFID, uid);
 
-  if (!equipeMqttPedir(TOPICO_USUARIO_PEDIDO, uid)) return false;
+  if (!equipeMqttPedir(TOPICO_USUARIO_PEDIDO, uid)) {
+    Serial.println("lerUsuario: sem MQTT pronto pra pedir");
+    return false;
+  }
 
   String json;
   if (!equipeMqttAguardar(TOPICO_USUARIO_RESPOSTA, uid, TIMEOUT_USUARIO_MS, json)) {
+    Serial.println("lerUsuario: ninguem respondeu totem/usuario/resposta a tempo");
     return false;
   }
-  if (jsonCampo(json, "erro").length() > 0) return false;
+  if (jsonCampo(json, "erro").length() > 0) {
+    Serial.println("lerUsuario: servidor respondeu erro: " + jsonCampo(json, "erro"));
+    return false;
+  }
 
   user.uid    = uid;
   user.name   = jsonCampo(json, "nome");
@@ -86,4 +97,31 @@ String linkCardapio(const User &user) {
     return "";
   }
   return jsonCampo(json, "link");
+}
+
+bool buscarComida(String &nome, String &link) {
+  String uid;
+  if (!rfidLerUID(uid)) return false;   // nenhum chip agora: caso normal, sem log
+
+  Serial.println("buscarComida: lido " + uid + ", consultando totem/cardapio/pedido...");
+  equipeMqttPublicar(TOPICO_RFID, uid);  // mesmo vinculo UID<->CPF que os outros alimentam
+
+  if (!equipeMqttPedir(TOPICO_CARDAPIO_PEDIDO, uid)) {
+    Serial.println("buscarComida: sem MQTT pronto pra pedir");
+    return false;
+  }
+
+  String json;
+  if (!equipeMqttAguardar(TOPICO_CARDAPIO_RESPOSTA, uid, TIMEOUT_CARDAPIO_MS, json)) {
+    Serial.println("buscarComida: ninguem respondeu totem/cardapio/resposta a tempo");
+    return false;
+  }
+  if (jsonCampo(json, "erro").length() > 0) {
+    Serial.println("buscarComida: servidor respondeu erro: " + jsonCampo(json, "erro"));
+    return false;
+  }
+
+  nome = jsonCampo(json, "nome");
+  link = jsonCampo(json, "link");
+  return true;
 }

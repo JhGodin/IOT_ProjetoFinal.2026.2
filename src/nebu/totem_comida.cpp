@@ -41,20 +41,20 @@ void totemComidaLoop() {
 
   switch (estado) {
     case ComidaEstado::EsperandoRFID: {
-      User user;
-      if (!lerUsuario(user)) break;
+      // Uma única ida-e-volta MQTT pra nome+link, em vez de lerUsuario() +
+      // linkCardapio() encadeados (dois round-trips, dois pontos de falha
+      // pra uma coisa só). Comida não precisa de dívida, então não precisa
+      // de lerUsuario().
+      String novoNome, novoLink;
+      if (!buscarComida(novoNome, novoLink)) break;
 
-      // O link carrega o ID do usuário, então o pedido feito no celular já sai
-      // no nome dele. Sem link não há QR escaneável: fica na tela inicial em
-      // vez de gastar um refresh desenhando lixo.
-      const String novo = linkCardapio(user);
-      if (!novo.length()) {
-        Serial.println("Sem link de cardapio para " + user.uid);
+      if (!novoLink.length()) {
+        Serial.println("Sem link de cardapio");
         break;
       }
 
-      linkQR = novo;
-      nome = user.name;
+      linkQR = novoLink;
+      nome = novoNome;
       entra(ComidaEstado::MostrandoQR);
       break;
     }

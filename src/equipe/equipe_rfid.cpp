@@ -25,5 +25,13 @@ bool rfidLerUID(String &uid) {
 
   rfid.PICC_HaltA();
   rfid.PCD_StopCrypto1();
+
+  // Mesmo flash do teste_rfid.cpp: confirma visualmente, no firmware de
+  // verdade, que o MFRC522 leu algo nesta leitura -- sem precisar trocar
+  // pro env de teste isolado pra saber se o problema e a leitura em si.
+  rgbLedWrite(RGB_BUILTIN, 0, 64, 0);
+  delay(1000);
+  rgbLedWrite(RGB_BUILTIN, 0, 0, 0);
+
   return true;
 }

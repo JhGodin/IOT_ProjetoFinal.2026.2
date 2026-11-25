@@ -82,8 +82,9 @@ void equipeMqttLoop()
     {
       for (size_t i = 0; i < N_SLOTS; i++)
       {
-        if (slots[i].topico[0] != '\0')
-          mqtt.subscribe(slots[i].topico);
+        if (slots[i].topico[0] == '\0') continue;
+        if (!mqtt.subscribe(slots[i].topico))
+          Serial.println("MQTT: subscribe() falhou em " + String(slots[i].topico));
       }
     }
     else

@@ -81,3 +81,11 @@ bool pagamentoConfirmado(const User &user);
 ///   - o fechamento do pedido (cozinha + débito na conta) é server/banco,
 ///     e o totem já está livre para a próxima pessoa nesse momento.
 String linkCardapio(const User &user);
+
+/// Lê o RFID e já busca nome+link do cardápio numa única ida-e-volta MQTT
+/// (totem/cardapio/pedido -> resposta), em vez de duas chamadas separadas
+/// (lerUsuario + linkCardapio) que exigem dois round-trips de rede
+/// funcionando. Usado só pelo totem de comida, que não precisa de dívida.
+/// false = nenhum chip presente, ou servidor não respondeu/não achou o uid —
+/// mesmo tratamento de "normal, tenta de novo" dos outros.
+bool buscarComida(String &nome, String &link);

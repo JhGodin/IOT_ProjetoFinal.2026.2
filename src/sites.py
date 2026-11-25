@@ -1,4 +1,5 @@
 import json
+import socket
 from secrets import token_urlsafe
 from threading import Thread
 
@@ -15,6 +16,24 @@ from credenciais.credenciais import ADMIN_USUARIO, ADMIN_SENHA
 from validate_docbr import CPF
 
 from sites_nebu import registrarNebu
+
+
+def obterIpLocal():
+    # Pergunta pro sistema qual IP seria usado pra alcançar a internet, sem
+    # mandar nada de verdade (UDP connect() so escolhe a rota, nao transmite).
+    # Assim o link do cardapio nao fica preso a um IP hardcoded que muda a
+    # cada vez que o laptop troca de rede/pega outro IP por DHCP.
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+IP_LOCAL = obterIpLocal()
 
 BD = URL.create(
     drivername=credenciais.BD_TIPO, host=credenciais.BD_HOST, port=credenciais.BD_PORTA,
@@ -47,6 +66,16 @@ mqtt = mqtt_python.Client(
 mqtt.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
 
 
+def jsonCompacto(dados):
+    # jsonCampo() do lado do ESP (equipe_mqtt.cpp) e um parser caseiro que so
+    # entende "chave":"valor" sem espaco depois dos dois-pontos -- json.dumps()
+    # normal poe um espaco ali por padrao, o que faz o parser do ESP cair no
+    # ramo de "numero cru" e devolver o valor com as aspas literais dentro,
+    # quebrando qualquer comparacao de igualdade (ex.: o match de uid em
+    # equipeMqttAguardar). Usar sempre isto pra publicar pro totem.
+    return json.dumps(dados, separators=(",", ":"))
+
+
 leituraRFID = None
 cpfAtual = None
 
@@ -58,7 +87,8 @@ def ConectarMQTT(cliente, dados_usuario, flags, codigo, propriedades):
         print(f"Conexao MQTT recusada: {codigo}", flush=True)
         return
 
-    for topico in ("totem/rfid", "totem/registro"):
+    topicos = ("totem/rfid", "totem/registro", "totem/usuario/pedido", "totem/cardapio/pedido")
+    for topico in topicos:
         resultado, _ = cliente.subscribe(topico, qos=0)
         if resultado != mqtt_python.MQTT_ERR_SUCCESS:
             print(f"Falha ao assinar {topico}: {resultado}", flush=True)
@@ -85,14 +115,88 @@ def tratarRegistroTotem(payload):
             )
     except SQLAlchemyError as erro:
         print(f"totem/registro: erro ao gravar '{tipo}': {erro}", flush=True)
+def tratarPedidoUsuario(payload):
+    # Substitui o Node-RED pra totem/usuario/pedido -> totem/usuario/resposta:
+    # o totem so manda o uid, aqui busca nome/divida pelo rfid ja vinculado
+    # no cadastro (ver tratarDadosRfid). calcularDivida() e a mesma usada
+    # em /loja, pra nao ter duas contas diferentes de quanto a pessoa deve.
+    try:
+        dados = json.loads(payload)
+    except ValueError:
+        print(f"totem/usuario/pedido: payload invalido: {payload!r}", flush=True)
+        return
+
+    uid = dados.get("uid", "").strip()
+    if not uid:
+        return
+
+    try:
+        with engine.connect() as conexao:
+            usuario = conexao.execute(
+                text('SELECT nome, cpf FROM "clientes" WHERE rfid = :rfid'),
+                {"rfid": uid},
+            ).first()
+    except SQLAlchemyError as erro:
+        print(f"totem/usuario/pedido: erro ao consultar '{uid}': {erro}", flush=True)
+        mqtt.publish("totem/usuario/resposta", jsonCompacto({"uid": uid, "erro": "banco indisponivel"}))
+        return
+
+    if usuario is None:
+        mqtt.publish("totem/usuario/resposta", jsonCompacto({"uid": uid, "erro": "rfid nao cadastrado"}))
+        return
+
+    # consumos/produtos guardam preco em centavos (ver formatarReais) -- o
+    # totem espera reais, com duas casas (totem_saida.cpp: String(divida, 2)).
+    divida = calcularDivida(usuario.cpf) / 100
+    resposta = {"uid": uid, "nome": usuario.nome, "cpfCnpj": usuario.cpf, "divida": divida}
+    mqtt.publish("totem/usuario/resposta", jsonCompacto(resposta))
+def tratarPedidoCardapio(payload):
+    # totem/cardapio/pedido -> totem/cardapio/resposta: nome+link numa unica
+    # consulta (buscarComida(), em equipe.cpp -- substitui o par
+    # usuario/pedido + cardapio/pedido encadeados por uma unica ida-e-volta).
+    # O link ja foi gerado no cadastro (clientes.link), nao gera um novo.
+    try:
+        dados = json.loads(payload)
+    except ValueError:
+        print(f"totem/cardapio/pedido: payload invalido: {payload!r}", flush=True)
+        return
+
+    uid = dados.get("uid", "").strip()
+    if not uid:
+        return
+
+    try:
+        with engine.connect() as conexao:
+            usuario = conexao.execute(
+                text('SELECT nome, link FROM "clientes" WHERE rfid = :rfid'),
+                {"rfid": uid},
+            ).first()
+    except SQLAlchemyError as erro:
+        print(f"totem/cardapio/pedido: erro ao consultar '{uid}': {erro}", flush=True)
+        mqtt.publish("totem/cardapio/resposta", jsonCompacto({"uid": uid, "erro": "banco indisponivel"}))
+        return
+
+    if usuario is None or not usuario.link:
+        mqtt.publish("totem/cardapio/resposta", jsonCompacto({"uid": uid, "erro": "sem link de cardapio"}))
+        return
+
+    resposta = {"uid": uid, "nome": usuario.nome, "link": usuario.link}
+    mqtt.publish("totem/cardapio/resposta", jsonCompacto(resposta))
 def recebeuMensagem(cliente, dados_usuario, mensagem):
     global leituraRFID
     global cpfAtual
 
     print(mensagem)
 
+    payload = mensagem.payload.decode("utf-8", errors="replace")
     if mensagem.topic == "totem/registro":
-        tratarRegistroTotem(mensagem.payload.decode("utf-8", errors="replace"))
+        tratarRegistroTotem(payload)
+        return
+    if mensagem.topic == "totem/usuario/pedido":
+        tratarPedidoUsuario(payload)
+        return
+    if mensagem.topic == "totem/cardapio/pedido":
+        tratarPedidoCardapio(payload)
         return
 
     if mensagem.topic != "totem/rfid" or mensagem.retain:
@@ -138,7 +242,11 @@ def tratarDados():
                 return render_template("cpf_ja_registrado.html"), 409
 
             nomeUsuario = request.form.get("nome", "").strip()
-            link = "http://192.168.4.1/loja?id=" + token_urlsafe(32) + cpfUsuario
+            # IP_LOCAL e descoberto em tempo real (ver obterIpLocal()) -- nao
+            # e mais 192.168.4.1 (esse e o gateway do SoftAP temporario do
+            # totem no boot, ver telaBootConfiguracao; nao e onde o sites.py
+            # roda).
+            link = f"http://{IP_LOCAL}:5000/loja?id=" + token_urlsafe(32) + cpfUsuario
         
     
     except IntegrityError:
